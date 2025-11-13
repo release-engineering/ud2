@@ -8,12 +8,15 @@ from typing import List
 from .compat import StrictModel
 from .product import Product
 from .repository import Repository
+from .version import Version
 
 
 __all__ = (
     'Pagination',
     'PaginatedProducts',
     'PaginatedRepositories',
+
+    'ResponseVersions',
 )
 
 
@@ -34,6 +37,15 @@ class PaginatedProducts(Pagination):
     """
 
     data: List[Product]
+
+
+class ResponseVersions(StrictModel):
+    """
+    Response containing version records. Not actually paginated, but
+    vestigially is bundled in a dict with a 'data' key.
+    """
+
+    data: List[Version]
 
 
 class PaginatedRepositories(Pagination):

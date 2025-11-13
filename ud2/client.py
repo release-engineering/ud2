@@ -42,6 +42,7 @@ from .models import (
     RepositoryCreate,
     Version,
     VersionCreate,
+    ResponseVersions,
 )
 
 
@@ -188,7 +189,7 @@ class UDClient:
         self.DELETE(f'/products/{product_id}')
 
 
-    def list_product_versions(self, product_id: int) -> List[Version]:
+    def list_product_versions(self, product_id: int) -> ResponseVersions:
         """
         Retrieve versions for a product.
 
@@ -198,7 +199,7 @@ class UDClient:
 
         return self.GET(
             f'/products/{product_id}/product_versions',
-            model=List[Version],
+            model=ResponseVersions,
         )
 
 
@@ -406,6 +407,10 @@ def coerce_model(data: Any, model: Any) -> Any:
     """
     Convert JSON data into the requested model shape.
     """
+
+    print(f"COERCING data type: {type(data)}")
+    print(f"COERCING data: {data}")
+    print(f"COERCING model: {model}")
 
     origin = get_origin(model)
     if origin in (list, List):

@@ -7,7 +7,7 @@ import requests
 from ud2.client import UDClient
 from ud2.config import UDConfig
 from ud2.models import (PaginatedProducts, PaginatedRepositories, Product,
-                        Repository, Version)
+                        Repository, ResponseVersions, Version)
 
 from . import (DEFAULT_SHA256, dump_model, make_paginated_products,
                make_paginated_repositories, make_product, make_product_create,
@@ -161,18 +161,20 @@ class TestUDClient(unittest.TestCase):
         session = StubSession([
             StubResponse(
                 headers={'Content-Type': 'application/json'},
-                json_data=[
+                json_data={'data': [  # XXX: hack, mismatch from swagger doc
                     {
                         'id': 4,
                         'productId': 10,
                         'version': '9.0',
                     },
-                ],
+                ],}
             ),
         ])
         client = UDClient(config=self.config, session=session)
 
-        versions = client.list_product_versions(product_id=10)
+        response = client.list_product_versions(product_id=10)
+        self.assertIsInstance(response, ResponseVersions)
+        versions = response.data
 
         self.assertEqual(len(versions), 1)
         self.assertIsInstance(versions[0], Version)
