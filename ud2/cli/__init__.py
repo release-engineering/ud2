@@ -33,19 +33,11 @@ def _emit_not_implemented_message(resource: str, verb: str, params: Dict[str, An
     """
     Provide a functional stub for actions that have not been implemented yet.
 
-    Parameters
-    ----------
-    resource:
-        Name of the resource being handled.
-    verb:
-        CRUD/REST verb representing the action to perform.
-    params:
-        Dictionary of keyword arguments provided to the CLI command.
+    :param resource: Name of the resource being handled.
+    :param verb: CRUD/REST verb representing the action to perform.
+    :param params: Dictionary of keyword arguments provided to the CLI command.
 
-    Returns
-    -------
-    int
-        An exit status code representing success (0) for the stub.
+    :returns: An exit status code representing success (0) for the stub.
     """
     click.echo(f"[stub] {resource}:{verb} called with {params}")
     return 0
@@ -103,6 +95,7 @@ def cli(ctx: click.Context) -> None:
     """
     ud2 command line interface entry point.
     """
+
     ctx.ensure_object(dict)
     ctx.obj.setdefault('actions', _build_default_action_map())
 
@@ -123,6 +116,7 @@ def main() -> None:
     """
     Entrypoint for console_scripts.
     """
+
     cli(obj={})
 
 

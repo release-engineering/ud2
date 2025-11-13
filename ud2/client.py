@@ -33,12 +33,27 @@ import requests
 from pydantic import BaseModel
 
 from .config import UDConfig
-from .models import Product, Repository, Version
+from .models import (
+    Product,
+    ProductCreate,
+    Repository,
+    RepositoryCreate,
+    Version,
+    VersionCreate,
+)
 
 
 logger = logging.getLogger('UDClient')
 
-Payload = Union[Product, Version, Repository, Dict[str, Any]]
+Payload = Union[
+    Product,
+    ProductCreate,
+    Version,
+    VersionCreate,
+    Repository,
+    RepositoryCreate,
+    Dict[str, Any],
+]
 
 
 class UDClient:
@@ -67,7 +82,7 @@ class UDClient:
         self._base_url = config.base_url.rstrip('/')
 
 
-    def GET(self, path: str, **kwargs: Any) -> Dict[str, Any]:
+    def GET(self, path: str, **kwargs: Any) -> Any:
         """
         Make a GET request to the given path.
         """
@@ -75,7 +90,7 @@ class UDClient:
         return self._request('GET', path, **kwargs)
 
 
-    def POST(self, path: str, **kwargs: Any) -> Dict[str, Any]:
+    def POST(self, path: str, **kwargs: Any) -> Any:
         """
         Make a POST request to the given path.
         """
@@ -83,7 +98,7 @@ class UDClient:
         return self._request('POST', path, **kwargs)
 
 
-    def PUT(self, path: str, **kwargs: Any) -> Dict[str, Any]:
+    def PUT(self, path: str, **kwargs: Any) -> Any:
         """
         Make a PUT request to the given path.
         """
@@ -91,7 +106,7 @@ class UDClient:
         return self._request('PUT', path, **kwargs)
 
 
-    def DELETE(self, path: str, **kwargs: Any) -> Dict[str, Any]:
+    def DELETE(self, path: str, **kwargs: Any) -> Any:
         """
         Make a DELETE request to the given path.
         """
@@ -99,139 +114,235 @@ class UDClient:
         return self._request('DELETE', path, **kwargs)
 
 
-    def create_product(self, payload: Product) -> Any:
-        """
-        Create a product resource.
-        """
-
-        return self.POST('product', payload=payload)
-
-
-    def update_product(
-            self,
-            identifier: str,
-            payload: Product) -> Any:
-        """
-        Update an existing product resource.
-        """
-
-        return self.PUT('product', identifier=identifier, payload=payload)
-
-
-    def delete_product(self, identifier: str) -> Any:
-        """
-        Delete a product resource.
-        """
-
-        return self.DELETE('product', identifier=identifier)
-
-
     def list_products(self, params: Optional[Dict[str, Any]] = None) -> Any:
         """
-        List product resources.
+        Retrieve a paginated list of products.
+
+        :param params: Optional pagination parameters (`page`, `limit`, `sort`).
         """
 
-        return self.GET('product', params=params)
+        return self.GET('/products', params=params)
 
 
-    def search_products(self, params: Optional[Dict[str, Any]] = None) -> Any:
+    def create_product(self, payload: Payload) -> Product:
         """
-        Search for product resources.
-        """
+        Create a product resource.
 
-        return self.GET('product/search', params=params)
-
-
-    def create_version(self, payload: Version) -> Any:
-        """
-        Create a version resource.
+        :param payload: Product payload matching API expectations.
+        :returns: Newly created product.
         """
 
-        return self.POST('version', payload=payload)
+        return self.POST('/products', payload=payload, model=Product)
 
 
-    def update_version(
+    def get_product(self, product_id: int) -> Product:
+        """
+        Retrieve a product by identifier.
+
+        :param product_id: Product identifier.
+        :returns: Product representation.
+        """
+
+        return self.GET(f'/products/{product_id}', model=Product)
+
+
+    def update_product(self, product_id: int, payload: Payload) -> Product:
+        """
+        Update an existing product.
+
+        :param product_id: Product identifier.
+        :param payload: Updated product payload.
+        :returns: Updated product.
+        """
+
+        return self.PUT(f'/products/{product_id}', payload=payload, model=Product)
+
+
+    def delete_product(self, product_id: int) -> None:
+        """
+        Delete a product.
+
+        :param product_id: Product identifier.
+        """
+
+        self.DELETE(f'/products/{product_id}')
+
+
+    def list_product_versions(self, product_id: int) -> List[Version]:
+        """
+        Retrieve versions for a product.
+
+        :param product_id: Product identifier.
+        :returns: Versions associated with the product.
+        """
+
+        return self.GET(
+            f'/products/{product_id}/product_versions',
+            model=List[Version],
+        )
+
+
+    def create_product_version(
             self,
-            identifier: str,
-            payload: Version) -> Any:
+            product_id: int,
+            payload: Payload) -> Version:
         """
-        Update an existing version resource.
-        """
+        Create a product version.
 
-        return self.PUT('version', identifier=identifier, payload=payload)
-
-
-    def delete_version(self, identifier: str) -> Any:
-        """
-        Delete a version resource.
+        :param product_id: Product identifier.
+        :param payload: Version payload.
+        :returns: Newly created version.
         """
 
-        return self.DELETE('version', identifier=identifier)
+        return self.POST(
+            f'/products/{product_id}/product_versions',
+            payload=payload,
+            model=Version,
+        )
 
 
-    def list_versions(self, params: Optional[Dict[str, Any]] = None) -> Any:
+    def get_product_version(self, product_id: int, version_id: int) -> Version:
         """
-        List version resources.
-        """
+        Retrieve a product version.
 
-        return self.GET('version', params=params)
-
-
-    def search_versions(self, params: Optional[Dict[str, Any]] = None) -> Any:
-        """
-        Search for version resources.
-        """
-
-        return self.GET('version/search', params=params)
-
-
-    def create_repository(self, payload: Repository) -> Any:
-        """
-        Create a repository resource.
+        :param product_id: Product identifier.
+        :param version_id: Version identifier.
+        :returns: Version representation.
         """
 
-        return self.POST('repository', payload=payload)
+        return self.GET(
+            f'/products/{product_id}/product_versions/{version_id}',
+            model=Version,
+        )
+
+
+    def update_product_version(
+            self,
+            product_id: int,
+            version_id: int,
+            payload: Payload) -> Version:
+        """
+        Update a product version.
+
+        :param product_id: Product identifier.
+        :param version_id: Version identifier.
+        :param payload: Updated version payload.
+        :returns: Updated version.
+        """
+
+        return self.PUT(
+            f'/products/{product_id}/product_versions/{version_id}',
+            payload=payload,
+            model=Version,
+        )
+
+
+    def delete_product_version(self, product_id: int, version_id: int) -> None:
+        """
+        Delete a product version.
+
+        :param product_id: Product identifier.
+        :param version_id: Version identifier.
+        """
+
+        self.DELETE(f'/products/{product_id}/product_versions/{version_id}')
+
+
+    def list_repositories(
+            self,
+            product_version_id: int,
+            params: Optional[Dict[str, Any]] = None) -> Any:
+        """
+        Retrieve repositories for a product version.
+
+        :param product_version_id: Product version identifier.
+        :param params: Optional pagination parameters (`page`, `limit`, `sort`).
+        """
+
+        return self.GET(
+            f'/product_versions/{product_version_id}/repositories',
+            params=params,
+        )
+
+
+    def create_repository(
+            self,
+            product_version_id: int,
+            payload: Payload) -> Repository:
+        """
+        Create a repository for a product version.
+
+        :param product_version_id: Product version identifier.
+        :param payload: Repository payload.
+        :returns: Newly created repository.
+        """
+
+        return self.POST(
+            f'/product_versions/{product_version_id}/repositories',
+            payload=payload,
+            model=Repository,
+        )
+
+
+    def get_repository(
+            self,
+            product_version_id: int,
+            repository_id: int) -> Repository:
+        """
+        Retrieve a repository by identifier.
+
+        :param product_version_id: Product version identifier.
+        :param repository_id: Repository identifier.
+        :returns: Repository representation.
+        """
+
+        return self.GET(
+            f'/product_versions/{product_version_id}/repositories/{repository_id}',
+            model=Repository,
+        )
 
 
     def update_repository(
             self,
-            identifier: str,
-            payload: Repository) -> Any:
+            product_version_id: int,
+            repository_id: int,
+            payload: Payload) -> Repository:
         """
-        Update an existing repository resource.
-        """
-        return self.PUT('repository', identifier=identifier, payload=payload)
+        Update a repository.
 
-
-    def delete_repository(self, identifier: str) -> Any:
-        """
-        Delete a repository resource.
-        """
-
-        return self.DELETE('repository', identifier=identifier)
-
-
-    def list_repositories(self, params: Optional[Dict[str, Any]] = None) -> Any:
-        """
-        List repository resources.
+        :param product_version_id: Product version identifier.
+        :param repository_id: Repository identifier.
+        :param payload: Updated repository payload.
+        :returns: Updated repository.
         """
 
-        return self.GET('repository', params=params)
+        return self.PUT(
+            f'/product_versions/{product_version_id}/repositories/{repository_id}',
+            payload=payload,
+            model=Repository,
+        )
 
 
-    def search_repositories(self, params: Optional[Dict[str, Any]] = None) -> Any:
+    def delete_repository(
+            self,
+            product_version_id: int,
+            repository_id: int) -> None:
         """
-        Search for repository resources.
+        Delete a repository.
+
+        :param product_version_id: Product version identifier.
+        :param repository_id: Repository identifier.
         """
 
-        return self.GET('repository/search', params=params)
+        self.DELETE(
+            f'/product_versions/{product_version_id}/repositories/{repository_id}',
+        )
 
 
     def _request(
             self,
             method: str,
-            resource: str,
-            identifier: Optional[str] = None,
+            path: str,
             payload: Optional[Payload] = None,
             model: Optional[Any] = None,
             params: Optional[Dict[str, Any]] = None) -> Any:
@@ -239,12 +350,16 @@ class UDClient:
         Generic REST request wrapper.
         """
 
-        url = f"{self._base_url}/{resource}"
-        if identifier:
-            url += f"/{identifier}"
+        if not path.startswith('/'):
+            raise ValueError(f"Expected absolute path starting with '/': {path}")
+
+        url = f"{self._base_url}{path}"
 
         if isinstance(payload, BaseModel):
-            payload = payload.model_dump(exclude_none=True)
+            payload = payload.model_dump(
+                by_alias=True,
+                exclude_none=True,
+            )
 
         response = self._session.request(
             method=method,

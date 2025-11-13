@@ -15,11 +15,10 @@
 Configuration helpers for ud2.
 """
 
-
 import configparser
 import pathlib
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Optional
 
 
 import logging
@@ -74,7 +73,7 @@ def load_config(path: pathlib.Path, environment: str) -> UDConfig:
     if isinstance(timeout, str):
         try:
             timeout = float(timeout)
-        except ValueError as exc:
+        except ValueError:
             logger.warning(f"Invalid timeout value: {timeout}")
             timeout = None
 
