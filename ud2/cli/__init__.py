@@ -10,6 +10,7 @@ import functools
 import logging
 import pathlib
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
 import click
@@ -23,23 +24,40 @@ from ..client import UDClient
 
 
 DEFAULT_CONFIG_PATH = pathlib.Path("~/.config/ud2/config.ini")
-OUTPUT_CHOICES = ("friendly", "yaml")
-
-
 @dataclass
 class CLIState:
     """
     Container for shared CLI state.
 
     :param client: Configured UDClient instance.
-    :param output: Requested output format.
+    :param yaml_output: When True, render results as YAML.
+    :param debug: Indicates whether debug mode is enabled.
     """
 
     client: UDClient
-    output: str
+    yaml_output: bool
+    debug: bool
 
 
 pass_state = click.make_pass_decorator(CLIState)
+
+
+def _debug_enabled() -> bool:
+    """
+    Determine whether the current Click context has debug enabled.
+    """
+
+    context = click.get_current_context(silent=True)
+
+    if context is None:
+        return False
+
+    state = context.obj
+
+    if isinstance(state, CLIState):
+        return state.debug
+
+    return getattr(state, "debug", False)
 
 
 def with_error_handling(function: Callable[..., Any]) -> Callable[..., Any]:
@@ -54,6 +72,8 @@ def with_error_handling(function: Callable[..., Any]) -> Callable[..., Any]:
         except click.ClickException:
             raise
         except Exception as exc:
+            if _debug_enabled():
+                raise
             raise _as_click_exception(exc)
 
     return wrapper
@@ -69,6 +89,8 @@ def invoke_with_handling(operation: Callable[[], Any]) -> Any:
     except click.ClickException:
         raise
     except Exception as exc:
+        if _debug_enabled():
+            raise
         raise _as_click_exception(exc)
 
 
@@ -126,6 +148,8 @@ def load_model(path_value: str, model_type: Type[BaseModel]) -> BaseModel:
     try:
         return model_type.model_validate(payload)
     except ValidationError as exc:
+        if _debug_enabled():
+            raise
         message = _format_validation_error(exc)
         raise click.ClickException(message)
 
@@ -137,7 +161,7 @@ def emit(data: Any, state: CLIState) -> None:
 
     normalized = _to_primitive(data)
 
-    if state.output == "yaml":
+    if state.yaml_output:
         rendered = yaml.safe_dump(normalized, sort_keys=False)
         click.echo(rendered)
         return
@@ -150,8 +174,11 @@ def _to_primitive(value: Any) -> Any:
     Convert models and other custom objects into basic Python types.
     """
 
+    if isinstance(value, Enum):
+        return value.value
+
     if isinstance(value, BaseModel):
-        return value.model_dump()
+        return _to_primitive(value.model_dump())
 
     if isinstance(value, dict):
         return {key: _to_primitive(item) for key, item in value.items()}
@@ -274,18 +301,61 @@ def _format_validation_error(exc: ValidationError) -> str:
     Format a Pydantic validation error for presentation to end users.
     """
 
-    entries = []
-    for error in exc.errors():
-        location = ".".join(str(item) for item in error.get("loc", ()))
-        message = error.get("msg", "")
-        if location:
-            entries.append(f"{location}: {message}")
-        else:
-            entries.append(message)
+    entries: List[str] = []
+
+    for location_parts, message in _iter_validation_entries(exc.errors()):
+        location = ".".join(str(item) for item in location_parts if item != '')
+        if not location:
+            location = "<root>"
+        entries.append(f"{location}: {message}")
 
     header = "Validation failed:"
     bullet_list = "\n".join(f"- {entry}" for entry in entries)
     return f"{header}\n{bullet_list}"
+
+
+def _iter_validation_entries(
+        errors: Sequence[Dict[str, Any]],
+        prefix: Tuple[Any, ...] = ()) -> Iterable[Tuple[Tuple[Any, ...], str]]:
+    """
+    Flatten validation errors, yielding (location, message) tuples.
+    """
+
+    for error in errors:
+        loc = prefix + tuple(error.get("loc", ()))
+        ctx = error.get("ctx")
+
+        nested_errors = None
+        if isinstance(ctx, dict):
+            nested_errors = ctx.get("errors")
+            if nested_errors is None:
+                nested_error = ctx.get("error")
+                if isinstance(nested_error, ValidationError):
+                    nested_errors = nested_error.errors()
+                elif isinstance(nested_error, list):
+                    nested_errors = nested_error
+
+        message = error.get("msg", "")
+
+        if error.get("type") == "model_type":
+            fragments = [message]
+            if isinstance(ctx, dict):
+                class_name = ctx.get("class_name")
+            else:
+                class_name = None
+            if class_name:
+                fragments.append(f"(expected {class_name})")
+            if "input" in error:
+                input_value = error["input"]
+                fragments.append(f"(received {type(input_value).__name__})")
+            message = " ".join(fragments)
+
+        if nested_errors is not None:
+            yield loc, message
+            yield from _iter_validation_entries(nested_errors, loc)
+            continue
+
+        yield loc, message
 
 
 def _configure_logging(debug: bool) -> None:
@@ -314,10 +384,10 @@ def _configure_logging(debug: bool) -> None:
     help="Environment profile to load from the configuration file.",
 )
 @click.option(
-    "--output",
-    type=click.Choice(OUTPUT_CHOICES, case_sensitive=False),
-    default="friendly",
-    help="Output format for command results.",
+    "--yaml/--no-yaml",
+    "yaml_output",
+    default=False,
+    help="Render results as YAML instead of friendly text.",
 )
 @click.option(
     "--debug/--no-debug",
@@ -329,7 +399,7 @@ def cli(
         ctx: click.Context,
         config_path: str,
         environment: str,
-        output: str,
+        yaml_output: bool,
         debug: bool) -> None:
     """
     ud2 command line interface entry point.
@@ -337,12 +407,16 @@ def cli(
 
     _configure_logging(debug)
 
-    state = _build_state(config_path, environment, output)
+    state = _build_state(config_path, environment, yaml_output, debug)
 
     ctx.obj = state
 
 
-def _build_state(config_path: str, environment: str, output: str) -> CLIState:
+def _build_state(
+        config_path: str,
+        environment: str,
+        yaml_output: bool,
+        debug: bool) -> CLIState:
     """
     Build the CLI state object used by command handlers.
     """
@@ -358,7 +432,8 @@ def _build_state(config_path: str, environment: str, output: str) -> CLIState:
 
     return CLIState(
         client=client,
-        output=output.lower(),
+        yaml_output=yaml_output,
+        debug=debug,
     )
 
 

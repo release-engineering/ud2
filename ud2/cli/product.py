@@ -3,12 +3,20 @@
 ""
 
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import click
 
-from ..models import ProductCreate
+from ..models import PaginatedProducts, ProductCreate
 from . import CLIState, emit, invoke_with_handling, load_model, pass_state, with_error_handling
+
+
+FRIENDLY_PRODUCT_COLUMNS = (
+    "id",
+    "name",
+    "eng_id",
+    "product_code",
+)
 
 
 def register(root: click.Group) -> None:
@@ -41,22 +49,16 @@ def register(root: click.Group) -> None:
         List products from the Unified Downloads API.
         """
 
-        params: Dict[str, Any] = {}
+        params = _build_product_params(page=page, limit=limit, sort=sort)
 
-        if page is not None:
-            params["page"] = page
-
-        if limit is not None:
-            params["limit"] = limit
-
-        if sort is not None:
-            params["sort"] = sort.lower()
-
-        result = invoke_with_handling(
-            lambda: state.client.list_products(params=params or None),
+        payload = invoke_with_handling(
+            lambda: _collect_products(state, params),
         )
 
-        emit(result, state)
+        if not state.yaml_output:
+            payload = _prepare_friendly_product_list(payload)
+
+        emit(payload, state)
 
     @products.command(name="get")
     @click.argument("product_id", type=int)
@@ -143,6 +145,110 @@ def register(root: click.Group) -> None:
         )
 
         emit(result, state)
+
+
+def _build_product_params(
+        page: Optional[int],
+        limit: Optional[int],
+        sort: Optional[str]) -> Optional[Dict[str, Any]]:
+    """
+    Construct request parameters for product listing calls.
+    """
+
+    params: Dict[str, Any] = {}
+
+    if page is not None:
+        params["page"] = page
+
+    if limit is not None:
+        params["limit"] = limit
+
+    if sort is not None:
+        params["sort"] = sort.lower()
+
+    return params or None
+
+
+def _collect_products(
+        state: CLIState,
+        params: Optional[Dict[str, Any]]) -> PaginatedProducts:
+    """
+    Retrieve product listings, defaulting to all pages when pagination is unset.
+    """
+
+    base_params: Dict[str, Any] = dict(params or {})
+    paginated_explicitly = any(key in base_params for key in ("page", "limit"))
+
+    initial = state.client.list_products(params=base_params or None)
+    initial_page = _ensure_paginated_products(initial)
+
+    if paginated_explicitly or initial_page.total_pages <= 1:
+        return initial_page
+
+    all_rows: List[Dict[str, Any]] = [
+        product.model_dump()
+        for product in initial_page.data
+    ]
+
+    for next_page in range(initial_page.page + 1, initial_page.total_pages + 1):
+        page_params = dict(base_params)
+        page_params["page"] = next_page
+        page_params["limit"] = initial_page.limit
+
+        page_result = state.client.list_products(params=page_params)
+        page_obj = _ensure_paginated_products(page_result)
+
+        all_rows.extend(
+            product.model_dump()
+            for product in page_obj.data
+        )
+
+    combined = initial_page.model_dump()
+    combined.update({
+        "page": 1,
+        "limit": len(all_rows),
+        "total": len(all_rows),
+        "total_pages": 1,
+        "data": all_rows,
+    })
+
+    return PaginatedProducts.model_validate(combined)
+
+
+def _ensure_paginated_products(payload: Any) -> PaginatedProducts:
+    """
+    Coerce arbitrary payloads into a PaginatedProducts instance.
+    """
+
+    if isinstance(payload, PaginatedProducts):
+        return payload
+
+    return PaginatedProducts.model_validate(payload)
+
+
+def _prepare_friendly_product_list(payload: PaginatedProducts) -> Dict[str, Any]:
+    """
+    Format a product listing payload for friendly CLI presentation.
+    """
+
+    page_obj = _ensure_paginated_products(payload)
+
+    prepared = page_obj.model_dump()
+    rows = prepared.get("data", [])
+
+    trimmed: List[Dict[str, Any]] = []
+
+    for entry in rows:
+        trimmed_row: Dict[str, Any] = {}
+
+        for field in FRIENDLY_PRODUCT_COLUMNS:
+            trimmed_row[field] = entry.get(field, "")
+
+        trimmed.append(trimmed_row)
+
+    prepared["data"] = trimmed
+
+    return prepared
 
 
 # The end.

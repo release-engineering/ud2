@@ -81,8 +81,21 @@ class UDClient:
         self._session.headers.setdefault('Accept', 'application/json')
         self._session.headers.setdefault('Content-Type', 'application/json')
 
+        if config.ca_cert is not None:
+            verify = str(config.ca_cert)
+        else:
+            verify = config.verify
+        self._session.verify = verify
+        print(f"verify: {verify}")
+        print(f"config.ca_cert: {config.ca_cert}")
+        print(f"config.verify: {config.verify}")
+        print(f"config.client_cert: {config.client_cert}")
+        print(f"config.client_key: {config.client_key}")
+        print(f"config.base_url: {config.base_url}")
+        print(f"config.timeout: {config.timeout}")
+        print(f"config.name: {config.name}")
+
         self._timeout = config.timeout
-        self._session.verify = config.verify
 
         self._base_url = config.base_url.rstrip('/')
 

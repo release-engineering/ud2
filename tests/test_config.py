@@ -60,6 +60,7 @@ class TestLoadConfig(unittest.TestCase):
             self.assertEqual(loaded.client_key, expected_key)
             self.assertEqual(loaded.timeout, 3.5)
             self.assertTrue(loaded.verify)
+            self.assertIsNone(loaded.ca_cert)
 
     def test_missing_file_raises_configuration_error(self) -> None:
         missing_path = pathlib.Path("/tmp/nonexistent-config.ini")
@@ -147,6 +148,32 @@ class TestLoadConfig(unittest.TestCase):
             config_path.unlink(missing_ok=True)
 
         self.assertFalse(loaded.verify)
+
+    def test_ca_cert_path_resolves_when_provided(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = pathlib.Path(tmpdir, "ud2.ini")
+            cert_path = pathlib.Path(tmpdir, "cert.pem")
+            key_path = pathlib.Path(tmpdir, "key.pem")
+            ca_path = pathlib.Path(tmpdir, "ca.pem")
+            cert_path.touch()
+            key_path.touch()
+            ca_path.touch()
+            config_path.write_text(
+                "\n".join(
+                    [
+                        "[prod]",
+                        "base_url = https://downloads.example.com/api",
+                        f"client_cert = {cert_path}",
+                        f"client_key = {key_path}",
+                        f"ca_cert = {ca_path}",
+                    ],
+                ),
+                encoding="utf-8",
+            )
+
+            loaded = load_config(config_path, "prod")
+
+            self.assertEqual(loaded.ca_cert, ca_path.resolve())
 
 
 # The end.

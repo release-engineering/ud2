@@ -59,9 +59,10 @@ class TestCliRunner(unittest.TestCase):
     @mock.patch("ud2.cli._build_state")
     def test_products_list_default_output(self, build_state: mock.MagicMock) -> None:
         client = _DummyClient()
-        build_state.side_effect = lambda config, env, output: CLIState(
+        build_state.side_effect = lambda config, env, yaml_output, debug: CLIState(
             client=client,
-            output=output,
+            yaml_output=yaml_output,
+            debug=debug,
         )
 
         result = self.runner.invoke(cli, ["products", "list"])
@@ -73,14 +74,15 @@ class TestCliRunner(unittest.TestCase):
     @mock.patch("ud2.cli._build_state")
     def test_products_list_yaml_output(self, build_state: mock.MagicMock) -> None:
         client = _DummyClient()
-        build_state.side_effect = lambda config, env, output: CLIState(
+        build_state.side_effect = lambda config, env, yaml_output, debug: CLIState(
             client=client,
-            output=output,
+            yaml_output=yaml_output,
+            debug=debug,
         )
 
         result = self.runner.invoke(
             cli,
-            ["--output", "yaml", "products", "list"],
+            ["--yaml", "products", "list"],
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -90,9 +92,10 @@ class TestCliRunner(unittest.TestCase):
     @mock.patch("ud2.cli._build_state")
     def test_products_create_uses_payload_file(self, build_state: mock.MagicMock) -> None:
         client = _DummyClient()
-        build_state.side_effect = lambda config, env, output: CLIState(
+        build_state.side_effect = lambda config, env, yaml_output, debug: CLIState(
             client=client,
-            output=output,
+            yaml_output=yaml_output,
+            debug=debug,
         )
 
         with tempfile.NamedTemporaryFile("w", delete=False) as handle:
@@ -116,9 +119,10 @@ class TestCliRunner(unittest.TestCase):
     @mock.patch("ud2.cli._build_state")
     def test_repositories_delete_reports_success(self, build_state: mock.MagicMock) -> None:
         client = _DummyClient()
-        build_state.side_effect = lambda config, env, output: CLIState(
+        build_state.side_effect = lambda config, env, yaml_output, debug: CLIState(
             client=client,
-            output=output,
+            yaml_output=yaml_output,
+            debug=debug,
         )
 
         result = self.runner.invoke(

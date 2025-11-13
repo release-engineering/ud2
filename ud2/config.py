@@ -41,6 +41,7 @@ class UDConfig:
     base_url: str
     client_cert: pathlib.Path
     client_key: pathlib.Path
+    ca_cert: Optional[pathlib.Path] = None
     timeout: Optional[float] = None
     verify: bool = True
 
@@ -79,10 +80,17 @@ def load_config(path: pathlib.Path, environment: str) -> UDConfig:
             logger.warning(f"Invalid timeout value: {timeout}")
             timeout = None
 
-    verify = section.get('verify', 'true')
+    verify = section.get('verify', True)
     if isinstance(verify, str):
         lowered = verify.lower()
         verify = lowered in ('true', '1', 'yes')
+
+    ca_cert_value = section.get('ca_cert')
+    ca_cert: Optional[pathlib.Path]
+    if ca_cert_value:
+        ca_cert = pathlib.Path(ca_cert_value).expanduser().resolve()
+    else:
+        ca_cert = None
 
     return UDConfig(
         name=environment,
@@ -91,6 +99,7 @@ def load_config(path: pathlib.Path, environment: str) -> UDConfig:
         client_key=pathlib.Path(client_key).expanduser().resolve(),
         timeout=timeout,
         verify=verify,
+        ca_cert=ca_cert,
     )
 
 

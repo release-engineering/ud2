@@ -14,7 +14,9 @@ from unittest import mock
 import click
 from click.testing import CliRunner
 
-from ud2.cli import CLIState, cli, emit, load_model
+from pydantic import ValidationError
+
+from ud2.cli import CLIState, cli, emit, load_model, pass_state, with_error_handling
 from ud2.cli.product import register as register_products
 from ud2.cli.repository import register as register_repositories
 from ud2.cli.version import register as register_versions
@@ -59,13 +61,89 @@ class TestHelperFunctions(unittest.TestCase):
         self.assertIn("Validation failed", message)
         self.assertIn("eng_id", message)
 
+    def test_load_model_reraises_validation_error_in_debug_mode(self) -> None:
+        state = CLIState(
+            client=mock.Mock(spec=UDClient),
+            yaml_output=False,
+            debug=True,
+        )
+        command = click.Command("dummy")
+        context = click.Context(command, obj=state)
+
+        with context:
+            with mock.patch("ud2.cli.load_yaml_payload", return_value={"name": "Sample"}):
+                with self.assertRaises(ValidationError):
+                    load_model("ignored", ProductCreate)
+
+    def test_load_model_reports_nested_validation_errors(self) -> None:
+        payload: Dict[str, Any] = {"name": "Nested"}
+        validation_error = ValidationError.from_exception_data(
+            "ProductCreate",
+            [
+                {
+                    "type": "model_type",
+                    "loc": (),
+                    "msg": "Input should be a valid dictionary or instance of ProductCreate",
+                    "input": payload,
+                    "ctx": {
+                        "class_name": "ProductCreate",
+                        "errors": [
+                            {
+                                "type": "missing",
+                                "loc": ("eng_id",),
+                                "msg": "Field required",
+                            },
+                        ],
+                    },
+                },
+            ],
+        )
+
+        with mock.patch("ud2.cli.load_yaml_payload", return_value=payload):
+            with mock.patch.object(ProductCreate, "model_validate", side_effect=validation_error):
+                with self.assertRaises(click.ClickException) as caught:
+                    load_model("ignored", ProductCreate)
+
+        message = str(caught.exception)
+        self.assertIn("eng_id: Field required", message)
+        self.assertIn("<root>: Input should be a valid dictionary or instance of ProductCreate", message)
+
+    def test_with_error_handling_reraises_when_debug_enabled(self) -> None:
+        @click.command()
+        @with_error_handling
+        @pass_state
+        def failing_command(state: CLIState) -> None:
+            raise RuntimeError("boom")
+
+        debug_state = CLIState(
+            client=mock.Mock(spec=UDClient),
+            yaml_output=False,
+            debug=True,
+        )
+
+        with click.Context(failing_command, obj=debug_state) as ctx:
+            with self.assertRaises(RuntimeError):
+                ctx.invoke(failing_command)
+
+        normal_state = CLIState(
+            client=mock.Mock(spec=UDClient),
+            yaml_output=False,
+            debug=False,
+        )
+
+        with click.Context(failing_command, obj=normal_state) as ctx:
+            with self.assertRaises(click.ClickException) as caught:
+                ctx.invoke(failing_command)
+
+        self.assertEqual(str(caught.exception), "boom")
+
 
 class TestEmit(unittest.TestCase):
     def setUp(self) -> None:
         self.client = mock.Mock(spec=UDClient)
 
     def test_emit_yaml_outputs_yaml(self) -> None:
-        state = CLIState(client=self.client, output="yaml")
+        state = CLIState(client=self.client, yaml_output=True, debug=False)
         buffer = io.StringIO()
 
         with redirect_stdout(buffer):
@@ -75,7 +153,7 @@ class TestEmit(unittest.TestCase):
         self.assertIn("key: value", rendered)
 
     def test_emit_friendly_outputs_table(self) -> None:
-        state = CLIState(client=self.client, output="friendly")
+        state = CLIState(client=self.client, yaml_output=False, debug=False)
         buffer = io.StringIO()
 
         with redirect_stdout(buffer):
@@ -95,7 +173,7 @@ class TestEmit(unittest.TestCase):
 class _CommandHarness:
     def __init__(self) -> None:
         self.client = mock.Mock(spec=UDClient)
-        self.state = CLIState(client=self.client, output="friendly")
+        self.state = CLIState(client=self.client, yaml_output=False, debug=False)
         self.root = click.Group()
         register_products(self.root)
         register_versions(self.root)
@@ -196,7 +274,11 @@ class TestCliStructure(unittest.TestCase):
     def test_products_list_invokes_client(self, build_state: mock.MagicMock) -> None:
         client = mock.Mock(spec=UDClient)
         client.list_products.return_value = make_paginated_products(products=[])
-        build_state.return_value = CLIState(client=client, output="friendly")
+        build_state.return_value = CLIState(
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
 
         result = self.runner.invoke(cli, ["products", "list"])
 

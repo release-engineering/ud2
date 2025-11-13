@@ -141,6 +141,22 @@ class TestUDClient(unittest.TestCase):
             payload.model_dump(by_alias=True, exclude_none=True),
         )
 
+    def test_ca_cert_overrides_verify_flag(self) -> None:
+        session = StubSession([])
+        ca_path = pathlib.Path('/tmp/ca.pem')
+        config = UDConfig(
+            name='test',
+            base_url='https://downloads.example.test/api',
+            client_cert=pathlib.Path('/tmp/cert.pem'),
+            client_key=pathlib.Path('/tmp/key.pem'),
+            timeout=5.0,
+            verify=False,
+            ca_cert=ca_path,
+        )
+
+        UDClient(config=config, session=session)
+
+        self.assertEqual(session.verify, str(ca_path))
     def test_list_product_versions_coerces_models(self) -> None:
         session = StubSession([
             StubResponse(
