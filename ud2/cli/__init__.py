@@ -1,16 +1,3 @@
-# This library is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This library is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this library; if not, see <http://www.gnu.org/licenses/>.
-
 """
 UDv2 Command Line Interface package.
 
@@ -18,89 +5,368 @@ UDv2 Command Line Interface package.
 ::license: GPLv3
 """
 
+
 import functools
-from typing import Any, Callable, Dict, Tuple
+import logging
+import pathlib
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
 import click
+import requests
+import yaml
+from pydantic import BaseModel, ValidationError
 
 from .. import __version__
+from ..config import ConfigurationError, load_config
+from ..client import UDClient
 
-ResourceAction = Callable[[Dict[str, Any]], int]
-ActionKey = Tuple[str, str]
+
+DEFAULT_CONFIG_PATH = pathlib.Path("~/.config/ud2/config.ini")
+OUTPUT_CHOICES = ("friendly", "yaml")
 
 
-def _emit_not_implemented_message(resource: str, verb: str, params: Dict[str, Any]) -> int:
+@dataclass
+class CLIState:
     """
-    Provide a functional stub for actions that have not been implemented yet.
+    Container for shared CLI state.
 
-    :param resource: Name of the resource being handled.
-    :param verb: CRUD/REST verb representing the action to perform.
-    :param params: Dictionary of keyword arguments provided to the CLI command.
-
-    :returns: An exit status code representing success (0) for the stub.
+    :param client: Configured UDClient instance.
+    :param output: Requested output format.
     """
-    click.echo(f"[stub] {resource}:{verb} called with {params}")
-    return 0
+
+    client: UDClient
+    output: str
 
 
-def _resource_action(resource: str, verb: str) -> Callable[..., None]:
-    @click.pass_context
-    def command(ctx: click.Context, **kwargs: Any) -> None:
-        action: ResourceAction = ctx.obj['actions'][(resource, verb)]
-        status = action(kwargs)
-        ctx.exit(status)
-
-    command.__name__ = f"{resource}_{verb}"
-    command.__doc__ = f"Perform the {verb} action for {resource} resources."
-    return command
+pass_state = click.make_pass_decorator(CLIState)
 
 
-def _build_default_action_map() -> Dict[ActionKey, ResourceAction]:
-    verbs = ('create', 'update', 'delete', 'search', 'list')
-    resources = ('product', 'version', 'repository')
-    return {
-        (resource, verb): functools.partial(
-            _emit_not_implemented_message,
-            resource=resource,
-            verb=verb,
+def with_error_handling(function: Callable[..., Any]) -> Callable[..., Any]:
+    """
+    Decorate a command handler to translate common exceptions into Click failures.
+    """
+
+    @functools.wraps(function)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return function(*args, **kwargs)
+        except click.ClickException:
+            raise
+        except Exception as exc:
+            raise _as_click_exception(exc)
+
+    return wrapper
+
+
+def invoke_with_handling(operation: Callable[[], Any]) -> Any:
+    """
+    Execute an operation while converting known exceptions into Click failures.
+    """
+
+    try:
+        return operation()
+    except click.ClickException:
+        raise
+    except Exception as exc:
+        raise _as_click_exception(exc)
+
+
+def resolve_config_path(path_value: str) -> pathlib.Path:
+    """
+    Resolve a configuration path to an absolute Path instance.
+
+    :param path_value: Path supplied by the user.
+    :returns: Resolved absolute path.
+    """
+
+    path = pathlib.Path(path_value).expanduser()
+    return path.resolve()
+
+
+def load_yaml_payload(path_value: str) -> Dict[str, Any]:
+    """
+    Load a YAML payload from disk.
+
+    :param path_value: Path to the YAML file.
+    :returns: Parsed dictionary representing the payload.
+    """
+
+    path = pathlib.Path(path_value).expanduser().resolve()
+
+    if not path.is_file():
+        raise click.ClickException(f"Payload file not found: {path}")
+
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            data = yaml.safe_load(handle)
+    except yaml.YAMLError as exc:
+        raise click.ClickException(f"Unable to parse YAML payload: {exc}") from exc
+
+    if data is None:
+        return {}
+
+    if not isinstance(data, dict):
+        raise click.ClickException("Payload file must describe a YAML mapping.")
+
+    return data
+
+
+def load_model(path_value: str, model_type: Type[BaseModel]) -> BaseModel:
+    """
+    Load and validate a payload file into the requested Pydantic model.
+
+    :param path_value: Path pointing to the YAML payload.
+    :param model_type: Model type used for validation.
+    :returns: Instantiated model.
+    """
+
+    payload = load_yaml_payload(path_value)
+
+    try:
+        return model_type.model_validate(payload)
+    except ValidationError as exc:
+        message = _format_validation_error(exc)
+        raise click.ClickException(message)
+
+
+def emit(data: Any, state: CLIState) -> None:
+    """
+    Render data using the configured output mode.
+    """
+
+    normalized = _to_primitive(data)
+
+    if state.output == "yaml":
+        rendered = yaml.safe_dump(normalized, sort_keys=False)
+        click.echo(rendered)
+        return
+
+    click.echo(_render_friendly(normalized))
+
+
+def _to_primitive(value: Any) -> Any:
+    """
+    Convert models and other custom objects into basic Python types.
+    """
+
+    if isinstance(value, BaseModel):
+        return value.model_dump()
+
+    if isinstance(value, dict):
+        return {key: _to_primitive(item) for key, item in value.items()}
+
+    if isinstance(value, (list, tuple)):
+        return [_to_primitive(item) for item in value]
+
+    return value
+
+
+def _render_friendly(data: Any) -> str:
+    """
+    Render friendly output for the CLI.
+    """
+
+    if data is None:
+        return "Success."
+
+    if isinstance(data, dict) and "data" in data and isinstance(data["data"], list):
+        table = _render_table(data["data"])
+        meta_lines = [
+            f"{key.title()}: {value}"
+            for key, value in data.items()
+            if key != "data"
+        ]
+        if not meta_lines:
+            return table
+
+        return "\n".join([table, "", *meta_lines])
+
+    if isinstance(data, list):
+        return _render_table(data)
+
+    if isinstance(data, dict):
+        return "\n".join(
+            f"{key.title()}: {value}"
+            for key, value in data.items()
         )
-        for resource in resources
-        for verb in verbs
+
+    return str(data)
+
+
+def _render_table(rows: Sequence[Any]) -> str:
+    """
+    Render a list of dictionaries into a simple table.
+    """
+
+    if not rows:
+        return "No items found."
+
+    prepared: List[Dict[str, Any]] = []
+    for row in rows:
+        if isinstance(row, dict):
+            prepared.append(row)
+        elif isinstance(row, BaseModel):
+            prepared.append(row.model_dump())
+        else:
+            prepared.append({"value": row})
+
+    headers = sorted({key for row in prepared for key in row.keys()})
+    column_widths = {
+        header: max(len(header), *(len(str(row.get(header, ""))) for row in prepared))
+        for header in headers
     }
 
+    def render_row(values: Iterable[str]) -> str:
+        parts: List[str] = []
+        for header, value in zip(headers, values):
+            width = column_widths[header]
+            parts.append(f"{value:<{width}}")
+        return "  ".join(parts)
 
-def register_resource_group(root: click.Group, resource: str) -> None:
+    header_line = render_row(headers)
+    rule_line = render_row("-" * column_widths[header] for header in headers)
+
+    data_lines = [
+        render_row(str(row.get(header, "")) for header in headers)
+        for row in prepared
+    ]
+
+    return "\n".join([header_line, rule_line, *data_lines])
+
+
+def _as_click_exception(exc: Exception) -> click.ClickException:
     """
-    Attach CRUD-style commands for the provided resource name.
-
-    Parameters
-    ----------
-    root:
-        The root CLI group to which the resource commands should be attached.
-    resource:
-        The resource name driving the command hierarchy.
+    Convert known exception types into ClickException instances.
     """
-    group = click.Group(name=resource, help=f"{resource.title()} related operations.")
 
-    for verb in ('create', 'update', 'delete', 'search', 'list'):
-        group.command(name=verb)(_resource_action(resource, verb))
+    if isinstance(exc, click.ClickException):
+        return exc
 
-    root.add_command(group)
+    if isinstance(exc, ConfigurationError):
+        return click.ClickException(str(exc))
+
+    if isinstance(exc, ValidationError):
+        message = _format_validation_error(exc)
+        return click.ClickException(message)
+
+    if isinstance(exc, requests.HTTPError):
+        response = getattr(exc, "response", None)
+        if response is None:
+            return click.ClickException(f"HTTP error: {exc}")
+
+        body = getattr(response, "text", "")
+        snippet = body.strip().splitlines()
+        preview = snippet[0] if snippet else ""
+        if len(preview) > 200:
+            preview = preview[:197] + "..."
+        message = f"HTTP {response.status_code}: {preview}" if preview else f"HTTP {response.status_code}"
+        return click.ClickException(message)
+
+    if isinstance(exc, OSError):
+        return click.ClickException(str(exc))
+
+    return click.ClickException(str(exc))
+
+
+def _format_validation_error(exc: ValidationError) -> str:
+    """
+    Format a Pydantic validation error for presentation to end users.
+    """
+
+    entries = []
+    for error in exc.errors():
+        location = ".".join(str(item) for item in error.get("loc", ()))
+        message = error.get("msg", "")
+        if location:
+            entries.append(f"{location}: {message}")
+        else:
+            entries.append(message)
+
+    header = "Validation failed:"
+    bullet_list = "\n".join(f"- {entry}" for entry in entries)
+    return f"{header}\n{bullet_list}"
+
+
+def _configure_logging(debug: bool) -> None:
+    """
+    Configure logging based on the debug flag.
+    """
+
+    level = logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(level=level, format="%(levelname)s: %(message)s")
 
 
 @click.group()
 @click.version_option(version=__version__)
+@click.option(
+    "--config",
+    "config_path",
+    type=str,
+    default=str(DEFAULT_CONFIG_PATH),
+    help="Path to the ud2 configuration file.",
+)
+@click.option(
+    "--env",
+    "environment",
+    type=str,
+    default="default",
+    help="Environment profile to load from the configuration file.",
+)
+@click.option(
+    "--output",
+    type=click.Choice(OUTPUT_CHOICES, case_sensitive=False),
+    default="friendly",
+    help="Output format for command results.",
+)
+@click.option(
+    "--debug/--no-debug",
+    default=False,
+    help="Enable verbose logging.",
+)
 @click.pass_context
-def cli(ctx: click.Context) -> None:
+def cli(
+        ctx: click.Context,
+        config_path: str,
+        environment: str,
+        output: str,
+        debug: bool) -> None:
     """
     ud2 command line interface entry point.
     """
 
-    ctx.ensure_object(dict)
-    ctx.obj.setdefault('actions', _build_default_action_map())
+    _configure_logging(debug)
+
+    state = _build_state(config_path, environment, output)
+
+    ctx.obj = state
+
+
+def _build_state(config_path: str, environment: str, output: str) -> CLIState:
+    """
+    Build the CLI state object used by command handlers.
+    """
+
+    path = resolve_config_path(config_path)
+
+    try:
+        config = load_config(path, environment)
+    except ConfigurationError as exc:
+        raise click.ClickException(str(exc))
+
+    client = UDClient(config=config)
+
+    return CLIState(
+        client=client,
+        output=output.lower(),
+    )
 
 
 def _register_resource_commands() -> None:
+    """
+    Attach resource command groups to the CLI.
+    """
+
     from .product import register as register_product
     from .repository import register as register_repository
     from .version import register as register_version
@@ -117,7 +383,7 @@ def main() -> None:
     Entrypoint for console_scripts.
     """
 
-    cli(obj={})
+    cli(obj=None)
 
 
 # The end.

@@ -222,8 +222,4 @@ class TestUDClient(unittest.TestCase):
             client.GET('products')
 
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 # The end.
