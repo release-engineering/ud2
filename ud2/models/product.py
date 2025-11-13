@@ -2,9 +2,12 @@
 Pydantic models representing product resources.
 """
 
-from typing import Optional
+from typing import Optional, Union
 
-from .compat import StrictModel
+from .compat import StrictModel, field_validator
+from .enums import Architecture, coerce_enum
+
+ArchitectureValue = Union[Architecture, str]
 
 
 class ProductBase(StrictModel):
@@ -22,11 +25,26 @@ class ProductBase(StrictModel):
 
     eng_id: int
     name: str
-    arch: Optional[str] = None
+    arch: Optional[ArchitectureValue] = None
     category: Optional[str] = None
     product_code: Optional[str] = None
     product_group: Optional[str] = None
     product_group_name: Optional[str] = None
+
+    @field_validator('arch', mode='before')
+    def _coerce_architecture(cls, value: Optional[str]) -> Optional[ArchitectureValue]:
+        return coerce_enum(Architecture, value)
+
+    @field_validator('product_code', mode='before')
+    def _normalize_product_code(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+
+        normalized = value.strip()
+        if not normalized:
+            return None
+
+        return normalized.upper()
 
 
 class ProductCreate(ProductBase):

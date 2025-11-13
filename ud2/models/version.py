@@ -2,9 +2,14 @@
 Pydantic models representing version resources.
 """
 
-from typing import Optional
+from typing import Optional, Union
 
-from .compat import StrictModel, Field
+from .compat import StrictModel, Field, field_validator
+from .enums import Architecture, Platform, Visibility, coerce_enum
+
+VisibilityValue = Union[Visibility, str]
+ArchitectureValue = Union[Architecture, str]
+PlatformValue = Union[Platform, str]
 
 
 class VersionBase(StrictModel):
@@ -13,10 +18,22 @@ class VersionBase(StrictModel):
     """
 
     version: str
-    architecture: Optional[str] = None
+    architecture: Optional[ArchitectureValue] = None
     cpe: Optional[str] = None
-    platform: Optional[str] = None
-    visibility: Optional[str] = None
+    platform: Optional[PlatformValue] = None
+    visibility: Optional[VisibilityValue] = None
+
+    @field_validator('architecture', mode='before')
+    def _coerce_architecture(cls, value: Optional[str]) -> Optional[ArchitectureValue]:
+        return coerce_enum(Architecture, value)
+
+    @field_validator('platform', mode='before')
+    def _coerce_platform(cls, value: Optional[str]) -> Optional[PlatformValue]:
+        return coerce_enum(Platform, value)
+
+    @field_validator('visibility', mode='before')
+    def _coerce_visibility(cls, value: Optional[str]) -> Optional[VisibilityValue]:
+        return coerce_enum(Visibility, value)
 
 
 class VersionCreate(VersionBase):

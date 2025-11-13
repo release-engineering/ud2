@@ -6,7 +6,23 @@ import requests
 
 from ud2.client import UDClient
 from ud2.config import UDConfig
-from ud2.models import Product, ProductCreate, Repository, RepositoryCreate, Version
+from ud2.models import (
+    PaginatedProducts,
+    PaginatedRepositories,
+    Product,
+    Repository,
+    Version,
+)
+from ud2.models.testing import (
+    DEFAULT_SHA256,
+    dump_model,
+    make_paginated_products,
+    make_paginated_repositories,
+    make_product,
+    make_product_create,
+    make_repository,
+    make_repository_create,
+)
 
 
 class StubResponse:
@@ -77,7 +93,15 @@ class TestUDClient(unittest.TestCase):
         session = StubSession([
             StubResponse(
                 headers={'Content-Type': 'application/json'},
-                json_data={'data': [], 'page': 1, 'limit': 10},
+                json_data=dump_model(
+                    make_paginated_products(
+                        products=[],
+                        limit=10,
+                        page=1,
+                        total=0,
+                        total_pages=0,
+                    ),
+                ),
             ),
         ])
         client = UDClient(config=self.config, session=session)
@@ -92,22 +116,27 @@ class TestUDClient(unittest.TestCase):
             'https://downloads.example.test/api/products',
         )
         self.assertEqual(captured['params'], {'page': 2})
-        self.assertEqual(payload['data'], [])
+        self.assertIsInstance(payload, PaginatedProducts)
+        self.assertEqual(payload.data, [])
+        self.assertEqual(payload.limit, 10)
 
     def test_create_product_returns_model(self) -> None:
         session = StubSession([
             StubResponse(
                 headers={'Content-Type': 'application/json'},
-                json_data={
-                    'id': 10,
-                    'eng_id': 23,
-                    'name': 'RHEL',
-                },
+                json_data=dump_model(
+                    make_product(
+                        id=10,
+                        eng_id=23,
+                        name='RHEL',
+                    ),
+                ),
             ),
         ])
         client = UDClient(config=self.config, session=session)
 
-        result = client.create_product(ProductCreate(eng_id=23, name='RHEL'))
+        payload = make_product_create(eng_id=23, name='RHEL')
+        result = client.create_product(payload)
 
         self.assertIsInstance(result, Product)
         self.assertEqual(result.id, 10)
@@ -117,7 +146,10 @@ class TestUDClient(unittest.TestCase):
             captured['url'],
             'https://downloads.example.test/api/products',
         )
-        self.assertEqual(captured['json'], {'eng_id': 23, 'name': 'RHEL'})
+        self.assertEqual(
+            captured['json'],
+            payload.model_dump(by_alias=True, exclude_none=True),
+        )
 
     def test_list_product_versions_coerces_models(self) -> None:
         session = StubSession([
@@ -150,21 +182,23 @@ class TestUDClient(unittest.TestCase):
         session = StubSession([
             StubResponse(
                 headers={'Content-Type': 'application/json'},
-                json_data={
-                    'id': 7,
-                    'description': 'Installer',
-                    'fileName': 'setup.iso',
-                    'fileSize': 1024,
-                    'sha256': 'abc123',
-                },
+                json_data=dump_model(
+                    make_repository(
+                        id=7,
+                        description='Installer',
+                        fileName='setup.iso',
+                        fileSize=1024,
+                        sha256=DEFAULT_SHA256,
+                    ),
+                ),
             ),
         ])
         client = UDClient(config=self.config, session=session)
-        payload = RepositoryCreate(
+        payload = make_repository_create(
             description='Installer',
             file_name='setup.iso',
             file_size=1024,
-            sha256='abc123',
+            sha256=DEFAULT_SHA256,
         )
 
         repository = client.create_repository(
@@ -182,13 +216,40 @@ class TestUDClient(unittest.TestCase):
         )
         self.assertEqual(
             captured['json'],
-            {
-                'description': 'Installer',
-                'fileName': 'setup.iso',
-                'fileSize': 1024,
-                'sha256': 'abc123',
-            },
+            payload.model_dump(by_alias=True, exclude_none=True),
         )
+
+    def test_list_repositories_returns_paginated_model(self) -> None:
+        session = StubSession([
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data=dump_model(
+                    make_paginated_repositories(
+                        repositories=[],
+                        limit=5,
+                        page=1,
+                        total=0,
+                        total_pages=0,
+                    ),
+                ),
+            ),
+        ])
+        client = UDClient(config=self.config, session=session)
+
+        result = client.list_repositories(
+            product_version_id=11,
+            params={'limit': 5},
+        )
+
+        self.assertIsInstance(result, PaginatedRepositories)
+        self.assertEqual(result.data, [])
+        self.assertEqual(result.limit, 5)
+        captured = session.requests[0]
+        self.assertEqual(
+            captured['url'],
+            'https://downloads.example.test/api/product_versions/11/repositories',
+        )
+        self.assertEqual(captured['params'], {'limit': 5})
 
     def test_delete_repository_uses_nested_endpoint(self) -> None:
         session = StubSession([

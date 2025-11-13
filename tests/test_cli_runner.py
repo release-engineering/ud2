@@ -13,6 +13,11 @@ from click.testing import CliRunner
 
 from ud2.cli import CLIState, cli
 from ud2.models import ProductCreate
+from ud2.models.testing import (
+    dump_model,
+    make_paginated_products,
+    make_product,
+)
 
 
 class _DummyClient:
@@ -21,20 +26,23 @@ class _DummyClient:
 
     def list_products(self, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         self.calls.append(("list_products", (), {"params": params}))
-        return {
-            "data": [
-                {"id": 1, "name": "Alpha"},
-                {"id": 2, "name": "Beta"},
-            ],
-            "page": 1,
-            "limit": 10,
-            "total": 2,
-            "total_pages": 1,
-        }
+        products = [
+            make_product(id=1, name='Alpha'),
+            make_product(id=2, name='Beta'),
+        ]
+        page = make_paginated_products(
+            products=products,
+            limit=10,
+            page=1,
+            total=len(products),
+            total_pages=1,
+        )
+        # Provide serialized payload to mimic HTTP responses.
+        return dump_model(page)
 
     def create_product(self, payload: ProductCreate) -> Dict[str, Any]:
         self.calls.append(("create_product", (payload,), {}))
-        return payload.model_dump()
+        return dump_model(make_product(id=payload.eng_id, name=payload.name))
 
     def delete_repository(self, product_version_id: int, repository_id: int) -> None:
         self.calls.append(
@@ -80,7 +88,7 @@ class TestCliRunner(unittest.TestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("data:", result.output)
-        self.assertIn("- id: 1", result.output)
+        self.assertIn("id: 1", result.output)
 
     @mock.patch("ud2.cli._build_state")
     def test_products_create_uses_payload_file(self, build_state: mock.MagicMock) -> None:

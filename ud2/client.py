@@ -34,6 +34,8 @@ from pydantic import BaseModel
 
 from .config import UDConfig
 from .models import (
+    PaginatedProducts,
+    PaginatedRepositories,
     Product,
     ProductCreate,
     Repository,
@@ -114,14 +116,16 @@ class UDClient:
         return self._request('DELETE', path, **kwargs)
 
 
-    def list_products(self, params: Optional[Dict[str, Any]] = None) -> Any:
+    def list_products(
+            self,
+            params: Optional[Dict[str, Any]] = None) -> PaginatedProducts:
         """
         Retrieve a paginated list of products.
 
         :param params: Optional pagination parameters (`page`, `limit`, `sort`).
         """
 
-        return self.GET('/products', params=params)
+        return self.GET('/products', params=params, model=PaginatedProducts)
 
 
     def create_product(self, payload: Payload) -> Product:
@@ -251,7 +255,7 @@ class UDClient:
     def list_repositories(
             self,
             product_version_id: int,
-            params: Optional[Dict[str, Any]] = None) -> Any:
+            params: Optional[Dict[str, Any]] = None) -> PaginatedRepositories:
         """
         Retrieve repositories for a product version.
 
@@ -262,6 +266,7 @@ class UDClient:
         return self.GET(
             f'/product_versions/{product_version_id}/repositories',
             params=params,
+            model=PaginatedRepositories,
         )
 
 

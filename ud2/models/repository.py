@@ -2,9 +2,13 @@
 Pydantic models representing repository resources.
 """
 
+from datetime import datetime
 from typing import List, Optional
 
-from .compat import StrictModel, Field
+from .compat import Field, StrictModel, field_validator
+
+
+SHA256_LENGTH = 64
 
 
 class RepositoryBase(StrictModel):
@@ -46,6 +50,26 @@ class RepositoryBase(StrictModel):
         serialization_alias='longDescription',
     )
 
+    @field_validator('file_size')
+    def _validate_file_size(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError('file_size must be greater than zero')
+        return value
+
+    @field_validator('sha256', mode='before')
+    def _normalize_sha256(cls, value: Optional[str]) -> str:
+        if not isinstance(value, str):
+            raise ValueError('sha256 must be supplied as a hexadecimal string')
+
+        normalized = value.strip().lower()
+        if len(normalized) != SHA256_LENGTH:
+            raise ValueError('sha256 must be a 64 character hexadecimal string')
+
+        if not all(char in '0123456789abcdef' for char in normalized):
+            raise ValueError('sha256 must contain only hexadecimal characters')
+
+        return normalized
+
 
 class RepositoryCreate(RepositoryBase):
     """
@@ -82,6 +106,46 @@ class Repository(RepositoryBase):
     """
 
     id: int
+    product_name: Optional[str] = Field(
+        default=None,
+        alias='productName',
+        serialization_alias='productName',
+    )
+    product_version: Optional[str] = Field(
+        default=None,
+        alias='productVersion',
+        serialization_alias='productVersion',
+    )
+    publish_date: Optional[datetime] = Field(
+        default=None,
+        alias='publishDate',
+        serialization_alias='publishDate',
+    )
+    update_date: Optional[datetime] = Field(
+        default=None,
+        alias='updateDate',
+        serialization_alias='updateDate',
+    )
+
+    @field_validator('publish_date', 'update_date', mode='before')
+    def _parse_datetime(cls, value: Optional[str]) -> Optional[datetime]:
+        if value is None or isinstance(value, datetime):
+            return value
+
+        if not isinstance(value, str):
+            raise ValueError('Expected ISO 8601 string for date fields')
+
+        candidate = value.strip()
+        if not candidate:
+            return None
+
+        if candidate.endswith('Z'):
+            candidate = candidate[:-1] + '+00:00'
+
+        try:
+            return datetime.fromisoformat(candidate)
+        except ValueError as exc:
+            raise ValueError(f"Invalid ISO 8601 datetime: {value}") from exc
 
 
 # The end.

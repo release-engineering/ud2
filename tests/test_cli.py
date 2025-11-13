@@ -20,6 +20,11 @@ from ud2.cli.repository import register as register_repositories
 from ud2.cli.version import register as register_versions
 from ud2.client import UDClient
 from ud2.models import ProductCreate
+from ud2.models.testing import (
+    make_paginated_products,
+    make_paginated_repositories,
+    make_product,
+)
 
 
 class TestHelperFunctions(unittest.TestCase):
@@ -113,11 +118,8 @@ class _CommandHarness:
 class TestProductCommands(unittest.TestCase):
     def setUp(self) -> None:
         self.harness = _CommandHarness()
-        self.harness.client.list_products.return_value = {"data": []}
-        self.harness.client.create_product.return_value = ProductCreate(
-            eng_id=1,
-            name="Created",
-        )
+        self.harness.client.list_products.return_value = make_paginated_products(products=[])
+        self.harness.client.create_product.return_value = make_product(id=1, name="Created")
 
     def test_list_products_passes_query_parameters(self) -> None:
         self.harness.invoke(
@@ -165,7 +167,7 @@ class TestVersionCommands(unittest.TestCase):
 class TestRepositoryCommands(unittest.TestCase):
     def setUp(self) -> None:
         self.harness = _CommandHarness()
-        self.harness.client.list_repositories.return_value = {"data": []}
+        self.harness.client.list_repositories.return_value = make_paginated_repositories(repositories=[])
 
     def test_list_repositories_passes_query_parameters(self) -> None:
         self.harness.invoke(
@@ -195,7 +197,7 @@ class TestCliStructure(unittest.TestCase):
     @mock.patch("ud2.cli._build_state")
     def test_products_list_invokes_client(self, build_state: mock.MagicMock) -> None:
         client = mock.Mock(spec=UDClient)
-        client.list_products.return_value = {"data": []}
+        client.list_products.return_value = make_paginated_products(products=[])
         build_state.return_value = CLIState(client=client, output="friendly")
 
         result = self.runner.invoke(cli, ["products", "list"])

@@ -42,4 +42,14 @@ Capture ancillary improvements to the Stage 1 Pydantic models that can be pursue
 - Highlight alias mapping tables to align internal contributors and future API partners.
 - Benefits: keeps docs in lockstep with model evolution and lowers onboarding cost.
 
+## Current Status (2025-11-13)
+
+- Pagination models now live in `ud2/models/pagination.py` (`Pagination`, `PaginatedProducts`, `PaginatedRepositories`) and are consumed by the client list helpers.
+- Canonical enums (`Visibility`, `Architecture`, `Platform`) plus tolerant coercion live in `ud2/models/enums.py`, with product/version models validating against them.
+- Repository responses normalize ISO-8601 timestamps to `datetime`, enforce checksum length, and require positive file sizes; product codes are trimmed and upper-cased.
+- Test factories (`ud2/models/testing.py`) provide ready-made builders and serialization helpers that power the refreshed client/CLI/unit tests.
+- New unit coverage in `tests/test_models.py` exercises the validators, enums, and pagination types; client/CLI tests now rely on these factories.
+
+Remaining follow-up: produce external documentation snippets (ReST) derived from the refreshed schemas once the broader docs pipeline lands.
+
 <!-- The end. -->
