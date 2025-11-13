@@ -42,7 +42,7 @@ class StubSession:
         self._responses = list(responses)
         self.requests: List[Dict[str, Any]] = []
         self.headers: Dict[str, str] = {}
-        self.cert: Optional[str] = None
+        self.cert: Optional[Any] = None
         self.verify = True
 
     def request(
@@ -73,7 +73,8 @@ class TestUDClient(unittest.TestCase):
         self.config = UDConfig(
             name='test',
             base_url='https://downloads.example.test/api',
-            certificate=pathlib.Path('/tmp/cert.pem'),
+            client_cert=pathlib.Path('/tmp/cert.pem'),
+            client_key=pathlib.Path('/tmp/key.pem'),
             timeout=5.0,
             verify=True,
         )

@@ -67,14 +67,17 @@ class UDClient:
         """
         Initialize the client with the given configuration.
 
-        :param config: Resolved configuration detailing server and certificate information.
+        :param config: Resolved configuration detailing server and client certificate information.
         :param session: Optional pre-configured requests session for dependency injection.
         """
 
         self._config = config
 
         self._session = session or requests.Session()
-        self._session.cert = str(config.certificate)
+        self._session.cert = (
+            str(config.client_cert),
+            str(config.client_key),
+        )
         self._session.headers.setdefault('Accept', 'application/json')
         self._session.headers.setdefault('Content-Type', 'application/json')
 

@@ -39,7 +39,8 @@ class UDConfig:
 
     name: str
     base_url: str
-    certificate: pathlib.Path
+    client_cert: pathlib.Path
+    client_key: pathlib.Path
     timeout: Optional[float] = None
     verify: bool = True
 
@@ -64,10 +65,11 @@ def load_config(path: pathlib.Path, environment: str) -> UDConfig:
     section = parser[environment]
 
     base_url: Optional[str] = section.get('base_url')
-    certificate: Optional[str] = section.get('certificate')
+    client_cert: Optional[str] = section.get('client_cert')
+    client_key: Optional[str] = section.get('client_key')
 
-    if not base_url or not certificate:
-        raise ConfigurationError("Both 'base_url' and 'certificate' must be defined.")
+    if not base_url or not client_cert or not client_key:
+        raise ConfigurationError("Fields 'base_url', 'client_cert', and 'client_key' must be defined.")
 
     timeout = section.get('timeout', None)
     if isinstance(timeout, str):
@@ -85,7 +87,8 @@ def load_config(path: pathlib.Path, environment: str) -> UDConfig:
     return UDConfig(
         name=environment,
         base_url=base_url,
-        certificate=pathlib.Path(certificate).expanduser().resolve(),
+        client_cert=pathlib.Path(client_cert).expanduser().resolve(),
+        client_key=pathlib.Path(client_key).expanduser().resolve(),
         timeout=timeout,
         verify=verify,
     )

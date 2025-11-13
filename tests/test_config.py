@@ -31,14 +31,17 @@ class TestLoadConfig(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = pathlib.Path(tmpdir, "ud2.ini")
             cert_path = pathlib.Path(tmpdir, "certs", "prod.pem")
+            key_path = pathlib.Path(tmpdir, "certs", "prod-key.pem")
             cert_path.parent.mkdir(parents=True, exist_ok=True)
             cert_path.touch()
+            key_path.touch()
             config_path.write_text(
                 "\n".join(
                     [
                         "[prod]",
                         "base_url = https://downloads.example.com/api",
-                        f"certificate = {cert_path}",
+                        f"client_cert = {cert_path}",
+                        f"client_key = {key_path}",
                         "timeout = 3.5",
                         "verify = true",
                     ],
@@ -52,7 +55,9 @@ class TestLoadConfig(unittest.TestCase):
             self.assertEqual(loaded.name, "prod")
             self.assertEqual(loaded.base_url, "https://downloads.example.com/api")
             expected_cert = cert_path.resolve()
-            self.assertEqual(loaded.certificate, expected_cert)
+            expected_key = key_path.resolve()
+            self.assertEqual(loaded.client_cert, expected_cert)
+            self.assertEqual(loaded.client_key, expected_key)
             self.assertEqual(loaded.timeout, 3.5)
             self.assertTrue(loaded.verify)
 
@@ -69,10 +74,12 @@ class TestLoadConfig(unittest.TestCase):
         with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as handle:
             config_path = pathlib.Path(handle.name)
             cert_path = config_path.with_name("cert.pem")
+            key_path = config_path.with_name("key.pem")
             handle.write(
                 "[default]\n"
                 "base_url = https://example.test\n"
-                f"certificate = {cert_path}\n",
+                f"client_cert = {cert_path}\n"
+                f"client_key = {key_path}\n",
             )
 
         try:
@@ -103,10 +110,12 @@ class TestLoadConfig(unittest.TestCase):
         with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as handle:
             config_path = pathlib.Path(handle.name)
             cert_path = config_path.with_name("cert.pem")
+            key_path = config_path.with_name("key.pem")
             handle.write(
                 "[prod]\n"
                 "base_url = https://example.test\n"
-                f"certificate = {cert_path}\n"
+                f"client_cert = {cert_path}\n"
+                f"client_key = {key_path}\n"
                 "timeout = not-a-number\n",
             )
 
@@ -123,10 +132,12 @@ class TestLoadConfig(unittest.TestCase):
         with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as handle:
             config_path = pathlib.Path(handle.name)
             cert_path = config_path.with_name("cert.pem")
+            key_path = config_path.with_name("key.pem")
             handle.write(
                 "[prod]\n"
                 "base_url = https://example.test\n"
-                f"certificate = {cert_path}\n"
+                f"client_cert = {cert_path}\n"
+                f"client_key = {key_path}\n"
                 "verify = false\n",
             )
 
