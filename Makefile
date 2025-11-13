@@ -5,10 +5,10 @@ DIST_DIR := dist
 ARCHIVE := $(DIST_DIR)/$(NAME)-$(VERSION).tar.gz
 WHEEL := $(shell ls $(DIST_DIR)/$(NAME)-$(VERSION)-*.whl 2>/dev/null | head -n 1)
 
+
 .PHONY: all help test lint build clean install archive
+.DEFAULT_GOAL := test
 
-
-all: help
 
 help:
 	@echo "Common targets:"
