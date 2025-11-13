@@ -77,10 +77,10 @@ def load_config(path: pathlib.Path, environment: str) -> UDConfig:
             logger.warning(f"Invalid timeout value: {timeout}")
             timeout = None
 
-    verify = section.get('verify', True)
+    verify = section.get('verify', 'true')
     if isinstance(verify, str):
         lowered = verify.lower()
-        verify = lowered in ('false', '0', 'no')
+        verify = lowered in ('true', '1', 'yes')
 
     return UDConfig(
         name=environment,
