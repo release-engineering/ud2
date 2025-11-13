@@ -13,11 +13,8 @@ from click.testing import CliRunner
 
 from ud2.cli import CLIState, cli
 from ud2.models import ProductCreate
-from ud2.models.testing import (
-    dump_model,
-    make_paginated_products,
-    make_product,
-)
+
+from . import dump_model, make_paginated_products, make_product
 
 
 class _DummyClient:

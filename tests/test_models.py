@@ -6,24 +6,12 @@
 import unittest
 from datetime import datetime, timezone
 
-from ud2.models import (
-    Architecture,
-    PaginatedProducts,
-    PaginatedRepositories,
-    Product,
-    ProductCreate,
-    Repository,
-    RepositoryCreate,
-    VersionCreate,
-    Visibility,
-)
-from ud2.models.testing import (
-    DEFAULT_SHA256,
-    dump_model,
-    make_product,
-    make_product_create,
-    make_repository,
-)
+from ud2.models import (Architecture, PaginatedProducts, PaginatedRepositories,
+                        Product, ProductCreate, Repository, RepositoryCreate,
+                        VersionCreate, Visibility)
+
+from . import (DEFAULT_SHA256, dump_model, make_product, make_product_create,
+               make_repository)
 
 
 class TestProductModels(unittest.TestCase):

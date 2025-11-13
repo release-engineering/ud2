@@ -20,11 +20,9 @@ from ud2.cli.repository import register as register_repositories
 from ud2.cli.version import register as register_versions
 from ud2.client import UDClient
 from ud2.models import ProductCreate
-from ud2.models.testing import (
-    make_paginated_products,
-    make_paginated_repositories,
-    make_product,
-)
+
+from . import (make_paginated_products, make_paginated_repositories,
+               make_product)
 
 
 class TestHelperFunctions(unittest.TestCase):

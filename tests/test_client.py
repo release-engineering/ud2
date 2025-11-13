@@ -6,23 +6,12 @@ import requests
 
 from ud2.client import UDClient
 from ud2.config import UDConfig
-from ud2.models import (
-    PaginatedProducts,
-    PaginatedRepositories,
-    Product,
-    Repository,
-    Version,
-)
-from ud2.models.testing import (
-    DEFAULT_SHA256,
-    dump_model,
-    make_paginated_products,
-    make_paginated_repositories,
-    make_product,
-    make_product_create,
-    make_repository,
-    make_repository_create,
-)
+from ud2.models import (PaginatedProducts, PaginatedRepositories, Product,
+                        Repository, Version)
+
+from . import (DEFAULT_SHA256, dump_model, make_paginated_products,
+               make_paginated_repositories, make_product, make_product_create,
+               make_repository, make_repository_create)
 
 
 class StubResponse:

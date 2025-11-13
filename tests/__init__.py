@@ -5,15 +5,14 @@
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, Optional
 
-from .compat import BaseModel
-from .enums import Architecture, Platform, Visibility
-from .pagination import PaginatedProducts, PaginatedRepositories
-from .product import Product, ProductCreate
-from .repository import Repository, RepositoryCreate
-from .version import Version, VersionCreate
-
+from ud2.models.compat import BaseModel
+from ud2.models.enums import Architecture, Platform, Visibility
+from ud2.models.pagination import PaginatedProducts, PaginatedRepositories
+from ud2.models.product import Product, ProductCreate
+from ud2.models.repository import Repository, RepositoryCreate
+from ud2.models.version import Version, VersionCreate
 
 __all__ = (
     'DEFAULT_SHA256',
