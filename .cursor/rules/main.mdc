@@ -12,7 +12,8 @@ alwaysApply: true
 - `setup.py` remains minimal and delegates to `setuptools.setup()`.
 - Use `tox` to drive developer workflows: unit tests (`py`), linting (`flake8`), and building distributions (`build`).
 - The `Makefile` wraps common `tox` tasks and also provides install (user-site) and archive targets. Archive metadata (name/version) must come from setuptools.
-- Tests use the standard library `unittest` framework.
+- Tests use the standard library `unittest` framework, but are invoked from tox using pytest, eg. `tox -qe py --`
+- Test classes must be named with "Test" as the first part of their name.
 - Project license is GPLv3
 
 
