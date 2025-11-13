@@ -27,7 +27,8 @@ with `--config` and select profiles with `--env`.
 - Add a version: `ud2 versions create <product-id> --file version.yaml`
 - Attach release files: `ud2 repositories create <version-id> --file repo.yaml`
 
-See `docs/cli_quickstart.rst` for detailed, copy/paste friendly walkthroughs.
+See `docs/cli_quickstart.rst` for detailed, copy/paste friendly walkthroughs and
+`docs/configuration_reference.rst` for configuration file guidance.
 
 For programmatic access, build a client from configuration:
 
@@ -58,6 +59,7 @@ the standard library style.
 ## Documentation
 
 - CLI quickstart scenarios: `docs/cli_quickstart.rst`
+- Configuration reference: `docs/configuration_reference.rst`
 - Auto-generated API reference (Swagger): `reference/swagger.yaml`
 
 Sphinx documentation will be added under `docs/` in a future milestone.
