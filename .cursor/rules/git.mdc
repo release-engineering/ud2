@@ -1,0 +1,46 @@
+---
+alwaysApply: true
+---
+
+# Git Operations Rules
+
+DO NOT RUN ANY GIT COMMANDS UNLESS EXPLICITLY REQUESTED BY THE USER.
+
+
+## Commit Guidelines
+
+- **When to Commit**: Commit when checkpoints are reached or when configuration changes are completed entirely.
+- **Commit Message Format**: Mandatory heredoc format for commit messages:
+  ```bash
+  git commit -F - <<'EOF'
+  [Your commit message here]
+  EOF
+  ```
+  - Do not use extra escaping inside the commit message, quotes and special characters will be automatically preserved thanks to the heredoc quoted EOF.
+
+- **Message Quality**: Commit messages should be:
+  - Clear and descriptive
+  - Reference related work or tickets when applicable
+  - Explain what changed and why (briefly)
+
+
+## Moving Files
+
+- use `git mv` when renaming or moving files, to ensure they remain tracked
+
+
+## Removing Files
+
+- use `git rm` when removing a file.
+
+
+## Never Checkout, Reset, Revert, Rebase
+
+- only the user is permitted to perform actions other than committing. No agent may perform a git reset, a revert, a rebase, or any other mutating change to the git repository
+- the agent may request the user make these changes if absolutely necessary
+- the user will branch, the user will pull, the user will push.
+
+
+## Only the user may create branches
+
+- Never use commands such as git checkout or git branch

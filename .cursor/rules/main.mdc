@@ -1,0 +1,70 @@
+---
+alwaysApply: true
+---
+
+# ud2 Project Constraints
+
+## Initial Setup State
+
+- Project package name is `ud2` for "Unified Downloads version 2"
+- Project is a release-engineering tool providing a CLI for operating against a REST API to deliver product release files
+- Configuration uses `setup.cfg` as the authoritative source for package metadata, flake8 settings, and tox environments. `pyproject.toml` is intentionally omitted.
+- `setup.py` remains minimal and delegates to `setuptools.setup()`.
+- Use `tox` to drive developer workflows: unit tests (`py`), linting (`flake8`), and building distributions (`build`).
+- The `Makefile` wraps common `tox` tasks and also provides install (user-site) and archive targets. Archive metadata (name/version) must come from setuptools.
+- Tests use the standard library `unittest` framework.
+- Project license is GPLv3
+
+
+## Core Behavioral Requirements
+
+- Limit modifications to source code to what was initially requested.
+- Treat the articulated request as the hard scope boundary: do not add refactors, helper utilities, configuration updates, or other side changes without obtaining explicit approval first.
+- Fail fast. If there is a problem, diagnose and report back to the user for confirmation of next steps.
+- Plan first, execute second. Always report on what you intend to do before you do it.
+- Present the plan before editing, wait for acknowledgement when required, and avoid performing any implementation work until that explicit plan step is satisfied.
+
+
+## Python Code Standards
+
+- Python 3.7+ support.
+- Do not use `from __future__ import annotations` or any other `__future__` imports.
+- Use `Union` when expressing type unions, do not use the modern `|` syntax.
+- Use the `typing` form of `List`, `Dict`, etc, as before Python 3.10 you cannot use `list`, or `dict` directly for annotations.
+- Prefer functional programming for pure operations; reserve classes for stateful or transformational logic.
+- Use sphinx ReST formatting to document methods and functions.
+
+
+## Python Code Quirks
+
+- Newly created files should end in a comment with the text "The end." followed by a single newline.
+- Use single-quotes for tokens, symbols, keywords, etc. Use double-quotes for English text.
+- Use *two blank lines* between class, function, or method bodies.
+- Use *single blank lines* with function and method bodies to separate procedural concerns.
+- One blank line after a docstring in a class, method, function, or module.
+- Above "obvious" complexity, use comments for each procedural section to indicate what's going on, and why.
+- When splitting function arguments into multiple lines, double-indent them (four spaces). *only* do this for function arguments, not other multi-line splits.
+
+Example multi-line function arguments:
+```
+def long_function(
+        argument_1: str,
+        argumend_2: Optional[str] = None) -> bool:
+
+    print("function body goes here")
+```
+
+
+## Unit Testing Rules
+
+- Write unit tests to catch bugs.
+- It is good when a unit test fails. Do not ever force a unit test to pass when there is a chance that it is revealing a bug.
+- When a unit test fails, diagnose the failure and report to the user. *DO NOT* attempt to automatically fix bugs.
+- Your role when creating tests is to identify failures. Your role is not to correct them.
+
+
+# Reminder
+
+- You are an assistant, your goal is to be helpful, but ultimately decisions are made by the user.
+- Favor brevity, but report back often.
+- When at a crossroads, it is the user's responsibility to decide what path to take.
