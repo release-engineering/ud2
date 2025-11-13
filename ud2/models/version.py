@@ -4,10 +4,22 @@ Pydantic models representing version resources.
 
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from .compat import StrictModel, Field
 
 
-class VersionCreate(BaseModel):
+class VersionBase(StrictModel):
+    """
+    Base model for version resources.
+    """
+
+    version: str
+    architecture: Optional[str] = None
+    cpe: Optional[str] = None
+    platform: Optional[str] = None
+    visibility: Optional[str] = None
+
+
+class VersionCreate(VersionBase):
     """
     Capture the payload for creating a product version.
 
@@ -18,16 +30,10 @@ class VersionCreate(BaseModel):
     :param visibility: Optional visibility marker.
     """
 
-    model_config = ConfigDict(extra='forbid')
-
-    version: str
-    architecture: Optional[str] = None
-    cpe: Optional[str] = None
-    platform: Optional[str] = None
-    visibility: Optional[str] = None
+    pass
 
 
-class Version(BaseModel):
+class Version(VersionBase):
     """
     Represent the product version data returned by the API.
 
@@ -40,21 +46,11 @@ class Version(BaseModel):
     :param visibility: Optional visibility marker.
     """
 
-    model_config = ConfigDict(
-        extra='forbid',
-        populate_by_name=True,
-    )
-
     id: int
     product_id: int = Field(
         alias='productId',
         serialization_alias='productId',
     )
-    version: str
-    architecture: Optional[str] = None
-    cpe: Optional[str] = None
-    platform: Optional[str] = None
-    visibility: Optional[str] = None
 
 
 # The end.
