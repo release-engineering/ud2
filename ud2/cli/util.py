@@ -15,7 +15,7 @@ from requests import HTTPError
 from yaml import YAMLError
 
 from ..client import UDClient
-from ..config import UDConfig, load_config
+from ..config import UDConfig
 
 
 @dataclass
@@ -36,19 +36,19 @@ class CLIState:
 
 def build_cli_state(
         config_path: str,
-        environment: str,
-        yaml_output: bool,
-        debug: bool) -> CLIState:
+        environment: Optional[str] = None,
+        yaml_output: bool = False,
+        debug: bool = False) -> CLIState:
     """
     Build the CLI state object.
     """
-    # This is mostly a separate function so that we can mock it. Otherwise it
-    # could just bein main() directly.
+
+    # This is mostly a separate function so that we can mock its imported
+    # version in testing. Otherwise it could just bein main() directly.
 
     path = Path(config_path).expanduser().resolve()
 
-    # TODO: the config should self-declare its defualt environment.
-    config = load_config(path, environment)
+    config = UDConfig.from_file(path, environment)
 
     client = UDClient(config=config)
 
@@ -117,6 +117,9 @@ def catchall(function: Callable[..., Any]) -> Callable[..., Any]:
 
         except Exception as exc:
             echo(f"Unexpected Error: {exc}", err=True)
+            # print the traceback
+            import traceback
+            traceback.print_exc()
             raise
 
     return wrapper

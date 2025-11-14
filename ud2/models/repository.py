@@ -15,7 +15,7 @@ class RepositoryBase(StrictModel):
     """
     Base model for repository resources.
 
-    :param description: Short description of the repository.
+    :param description: Short description (title) of the repository.
     :param file_name: Repository archive file name.
     :param file_size: Repository archive size expressed in bytes.
     :param sha256: SHA-256 checksum of the repository archive.
@@ -25,30 +25,17 @@ class RepositoryBase(StrictModel):
     """
 
     description: str
-    file_name: str = Field(
-        alias='fileName',
-        serialization_alias='fileName',
-    )
-    file_size: int = Field(
-        alias='fileSize',
-        serialization_alias='fileSize',
-    )
+
+    file_name: str = Field(alias='fileName')
+    file_size: int = Field(alias='fileSize')
     sha256: str
+
     content_types: Optional[List[str]] = Field(
-        default=None,
-        alias='contentTypes',
-        serialization_alias='contentTypes',
-    )
+        alias='contentTypes', default=None)
     installation: Optional[str] = Field(
-        default=None,
-        alias='Installation',
-        serialization_alias='Installation',
-    )
+        alias='Installation', default=None)
     long_description: Optional[str] = Field(
-        default=None,
-        alias='longDescription',
-        serialization_alias='longDescription',
-    )
+        alias='longDescription', default=None)
 
     @field_validator('file_size')
     def _validate_file_size(cls, value: int) -> int:

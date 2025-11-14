@@ -19,7 +19,7 @@ import pathlib
 import tempfile
 import unittest
 
-from ud2.config import ConfigurationError, UDConfig, load_config
+from ud2.config import ConfigurationError, UDConfig
 
 
 class TestLoadConfig(unittest.TestCase):
@@ -49,7 +49,7 @@ class TestLoadConfig(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            loaded = load_config(config_path, "prod")
+            loaded = UDConfig.from_file(config_path, "prod")
 
             self.assertIsInstance(loaded, UDConfig)
             self.assertEqual(loaded.name, "prod")
@@ -66,7 +66,7 @@ class TestLoadConfig(unittest.TestCase):
         missing_path = pathlib.Path("/tmp/nonexistent-config.ini")
 
         with self.assertRaises(ConfigurationError) as caught:
-            load_config(missing_path, "prod")
+            UDConfig.from_file(missing_path, "prod")
 
         message = str(caught.exception)
         self.assertIn("Configuration file not found", message)
@@ -85,7 +85,7 @@ class TestLoadConfig(unittest.TestCase):
 
         try:
             with self.assertRaises(ConfigurationError) as caught:
-                load_config(config_path, "prod")
+                UDConfig.from_file(config_path, "prod")
         finally:
             config_path.unlink(missing_ok=True)
 
@@ -101,13 +101,13 @@ class TestLoadConfig(unittest.TestCase):
 
         try:
             with self.assertRaises(ConfigurationError) as caught:
-                load_config(config_path, "prod")
+                UDConfig.from_file(config_path, "prod")
         finally:
             config_path.unlink(missing_ok=True)
 
         self.assertIn("must be defined", str(caught.exception))
 
-    def test_invalid_timeout_logs_warning_and_defaults(self) -> None:
+    def test_invalid_timeout_raises_value_error(self) -> None:
         with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as handle:
             config_path = pathlib.Path(handle.name)
             cert_path = config_path.with_name("cert.pem")
@@ -121,13 +121,10 @@ class TestLoadConfig(unittest.TestCase):
             )
 
         try:
-            with self.assertLogs("UDConfig", level="WARNING") as captured:
-                loaded = load_config(config_path, "prod")
+            with self.assertRaises(ValueError):
+                UDConfig.from_file(config_path, "prod")
         finally:
             config_path.unlink(missing_ok=True)
-
-        self.assertEqual(loaded.timeout, None)
-        self.assertTrue(any("Invalid timeout value" in record for record in captured.output))
 
     def test_verify_string_false_interpreted_as_false(self) -> None:
         with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as handle:
@@ -143,7 +140,7 @@ class TestLoadConfig(unittest.TestCase):
             )
 
         try:
-            loaded = load_config(config_path, "prod")
+            loaded = UDConfig.from_file(config_path, "prod")
         finally:
             config_path.unlink(missing_ok=True)
 
@@ -171,7 +168,7 @@ class TestLoadConfig(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            loaded = load_config(config_path, "prod")
+            loaded = UDConfig.from_file(config_path, "prod")
 
             self.assertEqual(loaded.ca_cert, ca_path.resolve())
 

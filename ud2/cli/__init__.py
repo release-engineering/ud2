@@ -9,30 +9,24 @@ import os
 import logging
 import pathlib
 
-from click import Context, Group, Path, option, group, pass_context
+from click import Context, Path, option, group, pass_context
 from .util import build_cli_state
 
-
-DEFAULT_CONFIG_PATH = pathlib.Path("~/.config/ud2/config.ini")
-
-
-class MagicGroup(Group):
-    def _load_commands(self):
-        # delaying to avoid circular imports
-        from . import product     # noqa: F401
-        from . import repository  # noqa: F401
-        from . import version     # noqa: F401
-
-    def get_command(self, ctx, cmd_name):
-        self._load_commands()
-        return super().get_command(ctx, cmd_name)
-
-    def list_commands(self, ctx):
-        self._load_commands()
-        return super().list_commands(ctx)
+from .product import product
+from .repository import repository
+from .version import version
 
 
-@group(cls=MagicGroup)
+__all__ = (
+    "DEFAULT_CONFIG_PATH",
+    "main",
+)
+
+
+DEFAULT_CONFIG_PATH = pathlib.Path("~/.config/ud2/config.ini").expanduser()
+
+
+@group()
 @option("--config", "config_path", type=Path(dir_okay=False),
         help="Path to the ud2 configuration file.")
 @option("--env", "environment", default="default",
@@ -59,6 +53,11 @@ def main(
     if config_path is None:
         config_path = DEFAULT_CONFIG_PATH
     ctx.obj = build_cli_state(config_path, environment, yaml_output, debug)
+
+
+main.add_command(product)
+main.add_command(repository)
+main.add_command(version)
 
 
 # The end.

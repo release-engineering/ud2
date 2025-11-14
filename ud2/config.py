@@ -15,8 +15,8 @@
 Configuration helpers for ud2.
 """
 
-import configparser
-import pathlib
+from configparser import ConfigParser
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional
 
@@ -39,68 +39,79 @@ class UDConfig:
 
     name: str
     base_url: str
-    client_cert: pathlib.Path
-    client_key: pathlib.Path
-    ca_cert: Optional[pathlib.Path] = None
+    client_cert: Path
+    client_key: Path
+    ca_cert: Optional[Path] = None
     timeout: Optional[float] = None
     verify: bool = True
 
 
-def load_config(path: pathlib.Path, environment: str) -> UDConfig:
-    """
-    Read user configuration and produce a UDConfig instance.
+    @classmethod
+    def from_file(cls, path: Path, environment: str = None) -> 'UDConfig':
+        """
+        Read user configuration and produce a UDConfig instance.
 
-    :param path: Location of the configuration file to load.
-    :param environment: Name of the environment profile to select (e.g. 'dev', 'prod').
+        :param path: Location of the configuration file to load.
+        :param environment: Name of the environment profile to select (e.g. 'dev', 'prod').
 
-    :returns: Loaded configuration for the requested environment.
-    """
-    parser = configparser.ConfigParser()
+        :returns: Loaded configuration for the requested environment.
+        """
 
-    if not parser.read(path):
-        raise ConfigurationError(f"Configuration file not found or unreadable: {path}")
+        parser = ConfigParser()
 
-    if environment not in parser:
-        raise ConfigurationError(f"Environment '{environment}' not found in {path}")
+        logger.debug(f"Reading configuration file: {path}")
+        if not parser.read(path):
+            raise ConfigurationError(f"Configuration file not found or unreadable: {path}")
 
-    section = parser[environment]
+        return cls.from_config(parser, environment)
 
-    base_url: Optional[str] = section.get('base_url')
-    client_cert: Optional[str] = section.get('client_cert')
-    client_key: Optional[str] = section.get('client_key')
 
-    if not base_url or not client_cert or not client_key:
-        raise ConfigurationError("Fields 'base_url', 'client_cert', and 'client_key' must be defined.")
+    @classmethod
+    def from_config(cls, parser: ConfigParser, environment: str = None) -> 'UDConfig':
+        """
+        Load user configuration and produce a UDConfig instance.
 
-    timeout = section.get('timeout', None)
-    if isinstance(timeout, str):
-        try:
-            timeout = float(timeout)
-        except ValueError:
-            logger.warning(f"Invalid timeout value: {timeout}")
-            timeout = None
+        :param parser: ConfigParser instance to read from.
+        :param environment: Name of the environment profile to select (e.g. 'dev', 'prod').
 
-    verify = section.get('verify', True)
-    if isinstance(verify, str):
-        lowered = verify.lower()
-        verify = lowered in ('true', '1', 'yes')
+        :returns: Loaded configuration for the requested environment.
+        """
 
-    ca_cert_value = section.get('ca_cert')
-    ca_cert: Optional[pathlib.Path]
-    if ca_cert_value:
-        ca_cert = pathlib.Path(ca_cert_value).expanduser().resolve()
-    else:
-        ca_cert = None
+        logger.debug(f"Requested environment: {environment!r}")
+        if environment is None:
+            defaults = parser.default_section
+            environment = defaults.get('default_environment')
+            logger.debug(f"Configuration specifies 'default': {environment!r}")
 
-    return UDConfig(
-        name=environment,
-        base_url=base_url,
-        client_cert=pathlib.Path(client_cert).expanduser().resolve(),
-        client_key=pathlib.Path(client_key).expanduser().resolve(),
-        timeout=timeout,
-        verify=verify,
-        ca_cert=ca_cert,
-    )
+        if not environment:
+            raise ConfigurationError("No environment specified and no default environment found in configuration file")
+
+        if environment not in parser:
+            raise ConfigurationError(f"Environment '{environment}' not found in configuration file")
+
+        section = parser[environment]
+
+        base_url: Optional[str] = section.get('base_url')
+        client_cert: Optional[str] = section.get('client_cert')
+        client_key: Optional[str] = section.get('client_key')
+
+        if not base_url or not client_cert or not client_key:
+            raise ConfigurationError("Fields 'base_url', 'client_cert', and 'client_key' must be defined.")
+
+        timeout = section.getfloat('timeout', None)
+        verify = section.getboolean('verify', True)
+        ca_cert_value = section.get('ca_cert')
+        ca_cert = Path(ca_cert_value).expanduser().resolve() if ca_cert_value else None
+
+        return cls(
+            name=environment,
+            base_url=base_url,
+            client_cert=Path(client_cert).expanduser().resolve(),
+            client_key=Path(client_key).expanduser().resolve(),
+            timeout=timeout,
+            verify=verify,
+            ca_cert=ca_cert,
+        )
 
 
 # The end.

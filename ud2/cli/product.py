@@ -5,11 +5,10 @@ Product resource command registrations.
 
 from typing import Optional, Sequence
 
-from click import Choice, argument, echo, option
+from click import Choice, argument, echo, option, group
 
 from ..loader import pretty_yaml, load_yaml
 from ..models import Product, ProductCreate
-from . import main
 from .util import CLIState, pass_state, catchall, tabulate
 
 
@@ -52,7 +51,7 @@ def render_product(product: Product, yaml: bool) -> None:
     echo(f"Platform: {product.platform.value if product.platform else ''}")
 
 
-@main.group(name="product", help="Product related operations.")
+@group(name="product", help="Product related operations.")
 def product() -> None:
     """
     Product commands.
@@ -85,7 +84,7 @@ def list_products(
         )
         products = list(page_obj.data)
     else:
-        products = list(state.client.iter_products(sort=sort))
+        products = state.client.list_products(sort=sort)
 
     render_products(products, state.yaml_output)
 

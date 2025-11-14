@@ -5,11 +5,10 @@ Repository resource command registrations.
 
 from typing import Optional, Sequence
 
-from click import Choice, argument, echo, option
+from click import Choice, argument, echo, option, group
 
 from ..loader import pretty_yaml, load_yaml
 from ..models import Repository, RepositoryCreate
-from . import main
 from .util import CLIState, catchall, tabulate, pass_state
 
 
@@ -58,7 +57,7 @@ def render_repository(repository: Repository, yaml: bool) -> None:
     echo(f"Updated At: {repository.updated_at.isoformat() if repository.updated_at else ''}")
 
 
-@main.group(name="repository", help="Repository operations.")
+@group(name="repository", help="Repository operations.")
 def repository() -> None:
     """
     Repository commands.
@@ -95,11 +94,9 @@ def list_repositories(
         repos = list(page.data)
 
     else:
-        repos = list(
-            state.client.iter_repositories(
-                product_version_id=product_version_id,
-                sort=sort,
-            ),
+        repos = state.client.list_repositories(
+            product_version_id=product_version_id,
+            sort=sort,
         )
 
     render_repositories(repos, state.yaml_output)

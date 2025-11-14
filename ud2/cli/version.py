@@ -5,12 +5,11 @@ Version resource command registrations.
 
 from typing import Sequence
 
-from click import argument, echo, option
+from click import argument, echo, group, option
 
-from ..loader import pretty_yaml, load_yaml
+from ..loader import load_yaml, pretty_yaml
 from ..models import Version, VersionCreate
-from . import main
-from .util import CLIState, catchall, tabulate, pass_state
+from .util import CLIState, catchall, pass_state, tabulate
 
 
 def render_versions(versions: Sequence[Version], yaml: bool) -> None:
@@ -56,7 +55,7 @@ def render_version(version: Version, yaml: bool) -> None:
     echo(f"Updated At: {version.updated_at.isoformat() if version.updated_at else ''}")
 
 
-@main.group(name="version", help="Product version operations.")
+@group(name="version", help="Product version operations.")
 def version() -> None:
     """
     Product version commands.
@@ -74,7 +73,7 @@ def list_versions(
     List product versions for a product.
     """
 
-    versions = list(state.client.list_product_versions(product_id))
+    versions = state.client.list_product_versions(product_id)
     render_versions(versions, state.yaml_output)
 
 
