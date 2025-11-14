@@ -7,7 +7,7 @@ WHEEL := $(shell ls $(DIST_DIR)/$(NAME)-$(VERSION)-*.whl 2>/dev/null | head -n 1
 
 
 .PHONY: all help test lint build clean install archive coverage docs preview-docs
-.DEFAULT_GOAL := test
+.DEFAULT_GOAL := help
 
 
 help:
@@ -24,43 +24,38 @@ help:
 
 
 test:
-	tox -qe py
+	@tox -qe py
 
 
 flake8:
-	tox -qe flake8
+	@tox -qe flake8
 
 
 coverage:
-	tox -qe py-cover
-	tox -qe compat-cover
-	tox -qe coverage-report
+	@tox -qe py-cover
+	@tox -qe compat-cover
+	@tox -qe coverage-report
 
 
 build:
-	tox -qe build
+	@tox -qe build
 
 
 docs:
-	tox -qe docs
+	@tox -qe docs
 
 
 preview-docs: docs
-	@echo "Serving documentation at http://127.0.0.1:8000"
 	@python3 -B -m http.server -d build/docs -b 127.0.0.1 8000
 
 
 install: build
-	@if [ -z "$(WHEEL)" ]; then \
-		echo "No wheel found in $(DIST_DIR); run 'make build' first."; \
-		exit 1; \
-	fi
-	python3 -B -m pip install --user "$(WHEEL)"
+	@python3 -B -m pip install --user "$(WHEEL)"
 
 
 archive:
-	mkdir -p $(DIST_DIR)
-	git archive --format=tar.gz --prefix=$(NAME)-$(VERSION)/ HEAD > "$(ARCHIVE)"
+	@mkdir -p $(DIST_DIR)
+	@git archive --format=tar.gz --prefix=$(NAME)-$(VERSION)/ HEAD > "$(ARCHIVE)"
 	@echo "Archive written to $(ARCHIVE)"
 
 
