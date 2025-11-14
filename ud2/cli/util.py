@@ -15,7 +15,7 @@ from requests import HTTPError
 from yaml import YAMLError
 
 from ..client import UDClient
-from ..config import UDConfig
+from ..config import UDConfig, ConfigurationError
 
 
 @dataclass
@@ -86,6 +86,10 @@ def catchall(function: Callable[..., Any]) -> Callable[..., Any]:
         except KeyboardInterrupt:
             echo("\n[Interrupted]", err=True)
             return 130
+
+        except ConfigurationError as e:
+            echo(f"Configuration Error: {e}", err=True)
+            return 1
 
         except YAMLError as e:
             # YAML parsing errors - show formatted error with file context

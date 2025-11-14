@@ -10,8 +10,9 @@ import logging
 import pathlib
 from typing import Optional
 
-from click import Context, Path, option, group, pass_context
+from click import Context, Path, option, group, pass_context, ClickException
 from .util import build_cli_state
+from ..config import ConfigurationError
 
 from .product import product
 from .repository import repository
@@ -30,7 +31,7 @@ DEFAULT_CONFIG_PATH = pathlib.Path("~/.config/ud2/config.ini").expanduser()
 @group()
 @option("--config", "config_path", type=Path(dir_okay=False),
         help="Path to the ud2 configuration file.")
-@option("--env", "environment", default="default",
+@option("--env", "environment", default=None,
         help="Environment profile to load from the configuration file.")
 @option("--yaml", "yaml_output", is_flag=True, default=False,
         help="Render results as YAML")
@@ -54,9 +55,13 @@ def main(
         if log_level:
             logging.basicConfig(level=log_level)
 
-    if config_path is None:
-        config_path = DEFAULT_CONFIG_PATH
-    ctx.obj = build_cli_state(config_path, environment, yaml_output, debug)
+    try:
+        if config_path is None:
+            config_path = DEFAULT_CONFIG_PATH
+        ctx.obj = build_cli_state(config_path, environment, yaml_output, debug)
+
+    except ConfigurationError as e:
+        raise ClickException(f"Configuration Error: {e}")
 
 
 main.add_command(product)

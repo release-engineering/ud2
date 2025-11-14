@@ -79,8 +79,7 @@ class UDConfig:
 
         logger.debug(f"Requested environment: {environment!r}")
         if environment is None:
-            defaults = parser.default_section
-            environment = defaults.get('default_environment')
+            environment = parser.get('main', 'default', fallback=None)
             logger.debug(f"Configuration specifies 'default': {environment!r}")
 
         if not environment:

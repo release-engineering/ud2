@@ -67,12 +67,14 @@ verification, while `prod` points to the production endpoint and enforces strict
 TLS settings.
 
 .. code-block:: ini
-   [default]
+   [main]
    # the default environment to use if --env is not specified.
-   default_environment = dev
+   default = dev
 
-   # other options apply to all environments unless overridden.
+   [DEFAULT]
+   # these options apply to all environments unless overridden.
    timeout = 5
+   verify = true
 
    [dev]
    base_url = https://staging.downloads.example.com/api/v1
@@ -84,8 +86,6 @@ TLS settings.
    base_url = https://downloads.example.com/api/v1
    client_cert = ~/.config/ud2/certs/prod-client.crt
    client_key = ~/.config/ud2/certs/prod-client.key
-   timeout = 15
-   verify = true
 
 Select an environment when running commands:
 
