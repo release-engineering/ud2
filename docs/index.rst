@@ -20,12 +20,11 @@ release-engineering workflows against the Unified Downloads REST API.
    soa/architecture
    soa/data_flow
    soa/system_design
-   soa/soa_prompt
 
 .. toctree::
    :maxdepth: 1
    :caption: Project Reference
 
-   release_notes
+   overview
 
 The end.

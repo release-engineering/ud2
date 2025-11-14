@@ -5,10 +5,10 @@ This diagram captures the `ud2 products list` command, which exercises configura
 ```{mermaid}
 sequenceDiagram
     participant User
-    participant CLI as ud2 CLI (Click)
-    participant CFG as Config Loader<br/>UDConfig
-    participant Client as UDClient<br/>requests.Session
-    participant API as Unified Downloads API
+    participant ["CLI as ud2 CLI (Click)"]
+    participant ["CFG as Config Loader<br/>UDConfig"]
+    participant ["Client as UDClient<br/>requests.Session"]
+    participant [API as Unified Downloads API]
 
     User->>CLI: Run `ud2 products list`
     CLI->>CFG: Load profile config<br/>paths, certs, base_url, timeout

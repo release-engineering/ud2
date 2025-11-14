@@ -42,12 +42,12 @@ build:
 
 
 docs:
-	tox -qe docs --
+	tox -qe docs
 
 
 preview-docs: docs
 	@echo "Serving documentation at http://127.0.0.1:8000"
-	python3 -B -m http.server --directory build/docs
+	@python3 -B -m http.server -d build/docs -b 127.0.0.1 8000
 
 
 install: build

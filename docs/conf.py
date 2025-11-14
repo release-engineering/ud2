@@ -6,23 +6,27 @@ import configparser
 from datetime import datetime
 from pathlib import Path
 
+def load_setup():
+    from configparser import ConfigParser
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SETUP_CFG = PROJECT_ROOT / 'setup.cfg'
+    global project
+    global release
+    global version
+    global author
+    global copyright
 
-config = configparser.ConfigParser()
-config.read(SETUP_CFG)
-metadata = config['metadata']
+    conf = ConfigParser()
+    conf.read(["../setup.cfg"])
+    metadata = conf['metadata']
 
-project = metadata.get('name', 'ud2')
-author = metadata.get('author', 'Unknown')
-release = metadata.get('version', '0.0.0')
-version = release
+    project = metadata['name']
+    release = metadata['version']
+    version = '.'.join(release.split('.')[:2])
+    author = metadata['author']
+    copyright = f"{metadata['copyright_years']}, {author}"
 
-current_year = datetime.utcnow().year
-copyright = (
-    f"{current_year}, {author}"
-)
+load_setup()
+
 
 extensions = [
     'myst_parser',
