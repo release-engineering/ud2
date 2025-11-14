@@ -67,6 +67,7 @@ verification, while `prod` points to the production endpoint and enforces strict
 TLS settings.
 
 .. code-block:: ini
+
    [main]
    # the default environment to use if --env is not specified.
    default = dev

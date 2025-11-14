@@ -6,7 +6,7 @@ ARCHIVE := $(DIST_DIR)/$(NAME)-$(VERSION).tar.gz
 WHEEL := $(shell ls $(DIST_DIR)/$(NAME)-$(VERSION)-*.whl 2>/dev/null | head -n 1)
 
 
-.PHONY: all help test lint build clean install archive coverage
+.PHONY: all help test lint build clean install archive coverage docs preview-docs
 .DEFAULT_GOAL := test
 
 
@@ -16,6 +16,8 @@ help:
 	@echo "  make coverage - run coverage across standard and compat test envs"
 	@echo "  make flake8   - run flake8 via tox"
 	@echo "  make build    - build wheel and sdist via tox"
+	@echo "  make docs     - build Sphinx documentation via tox"
+	@echo "  make preview-docs - serve built docs locally"
 	@echo "  make install  - install the built wheel into the current user environment"
 	@echo "  make archive  - create a source archive from git"
 	@echo "  make clean    - remove build artifacts"
@@ -37,6 +39,15 @@ coverage:
 
 build:
 	tox -qe build
+
+
+docs:
+	tox -qe docs --
+
+
+preview-docs: docs
+	@echo "Serving documentation at http://127.0.0.1:8000"
+	python3 -B -m http.server --directory build/docs
 
 
 install: build

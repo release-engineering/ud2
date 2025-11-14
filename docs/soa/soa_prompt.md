@@ -1,0 +1,50 @@
+# SOA Documentation Prompt
+
+## Context Scope
+
+- `ud2` is a release-engineering toolkit that ships a Click-based CLI, typed Python client (`UDClient`), and Pydantic models for the Unified Downloads REST API.
+- Operators run the CLI and manage local config (`~/.config/ud2/config.ini`) that feeds into `UDClient`, which signs requests with client certificates and calls the remote Unified Downloads API.
+- The API is responsible for storing products, versions, and repository files; `ud2` focuses on orchestrating those workflows but does not own downstream storage concerns.
+
+## Required Artifacts
+
+1. **Architecture Diagram**
+   - Depict the user workstation, CLI process, `UDClient`, configuration inputs, certificate handling, HTTPS transport, and the Unified Downloads API boundary.
+   - Call out trust zones (local workstation vs. remote service) and any dependencies the CLI uses locally (config loader, requests session, logging).
+2. **Data Flow Diagram (Mermaid)**
+   - Describe the request/response sequence for a representative operation (e.g., creating a product or listing versions).
+   - Include steps for configuration resolution, authentication (certificate mutual TLS), API invocation, and response validation/mapping onto models.
+3. **System Design Documentation**
+   - Summarize goals, constraints, and assumptions.
+   - Detail components (CLI, client, models, config, remote API) with responsibilities, interactions, and failure considerations.
+   - Cover operational aspects: configuration, authentication, logging, pagination, retries/timeouts, and extensibility notes.
+
+## Reusable Prompt Template
+
+Copy/paste the following prompt when asking an AI agent to produce or update the SOA artifacts:
+
+```
+You are documenting the `ud2` project, a CLI + Python client that orchestrates Unified Downloads REST API workflows.
+
+Project context:
+- CLI entrypoint: Click-based commands defined under `ud2.cli`.
+- Client: `ud2.client.UDClient` wraps `requests.Session`, loads certificates/CA bundle from `UDConfig`, and exposes helpers for products, versions, repositories.
+- Models: Pydantic classes in `ud2.models.*` enforce API schema.
+- Config: parsed from `~/.config/ud2/config.ini` (profile-based) and injected into the client.
+- Remote system: Unified Downloads REST API (handles persistence, authorization, storage).
+
+Tasks:
+1. Produce an **architecture diagram** (plain English description or diagram syntax) that highlights the interaction between User → CLI → UDClient → Unified Downloads API, including configuration/certificates and trust boundaries.
+2. Produce a **Mermaid data-flow diagram** that walks through a representative command (choose one) from user input through CLI parsing, client call, API response, and model validation.
+3. Produce **system design documentation** that captures goals, components, data contracts, error-handling, security/authentication notes, operational considerations (logging, pagination, retries), and open questions.
+
+Guidelines:
+- Base the narrative strictly on repo facts; explicitly note assumptions.
+- Reference concrete modules/functions when useful (`ud2/client.py`, `ud2/models/product.py`, etc.).
+- Keep the documentation scoped to the CLI/client/API boundary; exclude downstream services.
+- Output Markdown suitable for placement under `docs/soa/`.
+```
+
+Use this template verbatim unless scope changes; update the context bullets when the architecture meaningfully evolves so future runs stay accurate.
+
+<!-- The end. -->
