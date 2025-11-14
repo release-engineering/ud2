@@ -100,13 +100,16 @@ class UDConfig:
         timeout = section.getfloat('timeout', None)
         verify = section.getboolean('verify', True)
         ca_cert_value = section.get('ca_cert')
+
+        client_cert = Path(client_cert).expanduser().resolve()
+        client_key = Path(client_key).expanduser().resolve()
         ca_cert = Path(ca_cert_value).expanduser().resolve() if ca_cert_value else None
 
         return cls(
             name=environment,
             base_url=base_url,
-            client_cert=Path(client_cert).expanduser().resolve(),
-            client_key=Path(client_key).expanduser().resolve(),
+            client_cert=client_cert,
+            client_key=client_key,
             timeout=timeout,
             verify=verify,
             ca_cert=ca_cert,

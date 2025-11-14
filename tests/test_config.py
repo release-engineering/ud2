@@ -72,7 +72,7 @@ class TestLoadConfig(unittest.TestCase):
         self.assertIn("Configuration file not found", message)
 
     def test_missing_environment_raises_configuration_error(self) -> None:
-        with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as handle:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as handle:
             config_path = pathlib.Path(handle.name)
             cert_path = config_path.with_name("cert.pem")
             key_path = config_path.with_name("key.pem")
@@ -82,33 +82,29 @@ class TestLoadConfig(unittest.TestCase):
                 f"client_cert = {cert_path}\n"
                 f"client_key = {key_path}\n",
             )
+            handle.flush()
 
-        try:
             with self.assertRaises(ConfigurationError) as caught:
                 UDConfig.from_file(config_path, "prod")
-        finally:
-            config_path.unlink(missing_ok=True)
 
         self.assertIn("Environment 'prod' not found", str(caught.exception))
 
     def test_missing_required_keys_raises_configuration_error(self) -> None:
-        with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as handle:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as handle:
             config_path = pathlib.Path(handle.name)
             handle.write(
                 "[prod]\n"
                 "base_url = https://example.test\n"
             )
+            handle.flush()
 
-        try:
             with self.assertRaises(ConfigurationError) as caught:
                 UDConfig.from_file(config_path, "prod")
-        finally:
-            config_path.unlink(missing_ok=True)
 
         self.assertIn("must be defined", str(caught.exception))
 
     def test_invalid_timeout_raises_value_error(self) -> None:
-        with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as handle:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as handle:
             config_path = pathlib.Path(handle.name)
             cert_path = config_path.with_name("cert.pem")
             key_path = config_path.with_name("key.pem")
@@ -119,15 +115,13 @@ class TestLoadConfig(unittest.TestCase):
                 f"client_key = {key_path}\n"
                 "timeout = not-a-number\n",
             )
+            handle.flush()
 
-        try:
             with self.assertRaises(ValueError):
                 UDConfig.from_file(config_path, "prod")
-        finally:
-            config_path.unlink(missing_ok=True)
 
     def test_verify_string_false_interpreted_as_false(self) -> None:
-        with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as handle:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as handle:
             config_path = pathlib.Path(handle.name)
             cert_path = config_path.with_name("cert.pem")
             key_path = config_path.with_name("key.pem")
@@ -138,11 +132,9 @@ class TestLoadConfig(unittest.TestCase):
                 f"client_key = {key_path}\n"
                 "verify = false\n",
             )
+            handle.flush()
 
-        try:
             loaded = UDConfig.from_file(config_path, "prod")
-        finally:
-            config_path.unlink(missing_ok=True)
 
         self.assertFalse(loaded.verify)
 

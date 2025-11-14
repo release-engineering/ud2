@@ -6,13 +6,14 @@ ARCHIVE := $(DIST_DIR)/$(NAME)-$(VERSION).tar.gz
 WHEEL := $(shell ls $(DIST_DIR)/$(NAME)-$(VERSION)-*.whl 2>/dev/null | head -n 1)
 
 
-.PHONY: all help test lint build clean install archive
+.PHONY: all help test lint build clean install archive coverage
 .DEFAULT_GOAL := test
 
 
 help:
 	@echo "Common targets:"
 	@echo "  make test     - run unit tests via tox"
+	@echo "  make coverage - run coverage across standard and compat test envs"
 	@echo "  make flake8   - run flake8 via tox"
 	@echo "  make build    - build wheel and sdist via tox"
 	@echo "  make install  - install the built wheel into the current user environment"
@@ -26,6 +27,12 @@ test:
 
 flake8:
 	tox -qe flake8
+
+
+coverage:
+	tox -qe py-cover
+	tox -qe compat-cover
+	tox -qe coverage-report
 
 
 build:
