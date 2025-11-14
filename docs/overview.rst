@@ -1,7 +1,5 @@
-Release Notes
-=============
-
-Refer to the :code:`README.md` for the authoritative release summary.
+Overview
+========
 
 .. include:: ../README.md
    :parser: myst_parser.sphinx_

@@ -8,6 +8,13 @@ release-engineering workflows against the Unified Downloads REST API.
 
 .. toctree::
    :maxdepth: 1
+   :caption: Project Reference
+
+   overview
+   api/index
+
+.. toctree::
+   :maxdepth: 1
    :caption: Guides
 
    guides/cli_quickstart
@@ -21,11 +28,5 @@ release-engineering workflows against the Unified Downloads REST API.
    soa/data_flow
    soa/system_design
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Project Reference
-
-   overview
-   api/index
 
 .. The end.

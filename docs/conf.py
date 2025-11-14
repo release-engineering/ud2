@@ -61,5 +61,16 @@ mermaid_version = '10.9.1'
 
 autosummary_generate = True
 
+autodoc_default_options = {
+    'members': True,
+    'undoc-members': True,
+    'show-inheritance': True,
+    'exclude-members': 'field_validator',
+}
+
+suppress_warnings = [
+    'autodoc.duplicate_object',
+]
+
 
 # The end.
