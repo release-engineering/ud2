@@ -1,7 +1,6 @@
-""
-"Enumerations representing canonical UD model values."
-""
-
+"""
+Enumerations representing canonical UD model values.
+"""
 
 from enum import Enum
 from typing import Any, Optional, Type, TypeVar, Union

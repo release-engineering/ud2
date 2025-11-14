@@ -1,135 +1,165 @@
-""
-"Version resource command registrations."
-""
+"""
+Version resource command registrations.
+"""
 
 
-import click
+from typing import Sequence
 
-from ..models import VersionCreate
-from . import CLIState, emit, invoke_with_handling, load_model, pass_state, with_error_handling
+from click import argument, echo, option
+
+from ..loader import pretty_yaml, load_yaml
+from ..models import Version, VersionCreate
+from . import main
+from .util import CLIState, catchall, tabulate, pass_state
 
 
-def register(root: click.Group) -> None:
+def render_versions(versions: Sequence[Version], yaml: bool) -> None:
     """
-    Attach version related commands to the provided root group.
+    Render versions according to the configured output mode.
     """
 
-    @root.group(name="versions", help="Product version operations.")
-    def versions() -> None:
-        """
-        Product version commands.
-        """
+    if yaml:
+        pretty_yaml([
+            version.model_dump(by_alias=True, exclude_none=True)
+            for version in versions
+        ])
+        return
 
-    @versions.command(name="list")
-    @click.argument("product_id", type=int)
-    @with_error_handling
-    @pass_state
-    def list_versions(
-            state: CLIState,
-            product_id: int) -> None:
-        """
-        List product versions for a product.
-        """
-
-        result = invoke_with_handling(
-            lambda: state.client.list_product_versions(product_id),
+    headers = ("ID", "Version", "Architecture", "Platform", "Visibility")
+    rows = [
+        (
+            version.id,
+            version.version,
+            version.architecture.value if version.architecture else "",
+            version.platform.value if version.platform else "",
+            version.visibility.value if version.visibility else "",
         )
+        for version in versions
+    ]
+    tabulate(headers, rows)
 
-        emit(result, state)
 
-    @versions.command(name="get")
-    @click.argument("product_id", type=int)
-    @click.argument("version_id", type=int)
-    @with_error_handling
-    @pass_state
-    def get_version(
-            state: CLIState,
-            product_id: int,
-            version_id: int) -> None:
-        """
-        Retrieve a product version by identifier.
-        """
+def render_version(version: Version, yaml: bool) -> None:
+    """
+    Render a single version according to the configured output mode.
+    """
 
-        result = invoke_with_handling(
-            lambda: state.client.get_product_version(product_id, version_id),
-        )
+    if yaml:
+        pretty_yaml(version)
+        return
 
-        emit(result, state)
+    echo(f"{version.version} [ID: {version.id}]")
+    echo(f"Architecture: {version.architecture.value if version.architecture else ''}")
+    echo(f"Platform: {version.platform.value if version.platform else ''}")
+    echo(f"Visibility: {version.visibility.value if version.visibility else ''}")
+    echo(f"Created At: {version.created_at.isoformat() if version.created_at else ''}")
+    echo(f"Updated At: {version.updated_at.isoformat() if version.updated_at else ''}")
 
-    @versions.command(name="create")
-    @click.argument("product_id", type=int)
-    @click.option(
-        "--file",
-        "payload_path",
-        required=True,
-        type=str,
-        help="Path to a YAML file describing the product version payload.",
-    )
-    @with_error_handling
-    @pass_state
-    def create_version(
-            state: CLIState,
-            product_id: int,
-            payload_path: str) -> None:
-        """
-        Create a product version.
-        """
 
-        payload = load_model(payload_path, VersionCreate)
+@main.group(name="version", help="Product version operations.")
+def version() -> None:
+    """
+    Product version commands.
+    """
 
-        result = invoke_with_handling(
-            lambda: state.client.create_product_version(product_id, payload),
-        )
 
-        emit(result, state)
+@version.command(name="list")
+@argument("product_id", type=int)
+@pass_state
+@catchall
+def list_versions(
+        state: CLIState,
+        product_id: int) -> None:
+    """
+    List product versions for a product.
+    """
 
-    @versions.command(name="update")
-    @click.argument("product_id", type=int)
-    @click.argument("version_id", type=int)
-    @click.option(
-        "--file",
-        "payload_path",
-        required=True,
-        type=str,
-        help="Path to a YAML file describing the product version payload.",
-    )
-    @with_error_handling
-    @pass_state
-    def update_version(
-            state: CLIState,
-            product_id: int,
-            version_id: int,
-            payload_path: str) -> None:
-        """
-        Update a product version.
-        """
+    versions = list(state.client.list_product_versions(product_id))
+    render_versions(versions, state.yaml_output)
 
-        payload = load_model(payload_path, VersionCreate)
 
-        result = invoke_with_handling(
-            lambda: state.client.update_product_version(product_id, version_id, payload),
-        )
+@version.command(name="get")
+@argument("product_id", type=int)
+@argument("version_id", type=int)
+@pass_state
+@catchall
+def get_version(
+        state: CLIState,
+        product_id: int,
+        version_id: int) -> None:
+    """
+    Retrieve a product version by identifier.
+    """
 
-        emit(result, state)
+    version = state.client.get_product_version(product_id, version_id)
+    render_version(version, state.yaml_output)
 
-    @versions.command(name="delete")
-    @click.argument("product_id", type=int)
-    @click.argument("version_id", type=int)
-    @with_error_handling
-    @pass_state
-    def delete_version(
-            state: CLIState,
-            product_id: int,
-            version_id: int) -> None:
-        """
-        Delete a product version.
-        """
 
-        result = invoke_with_handling(
-            lambda: state.client.delete_product_version(product_id, version_id),
-        )
+@version.command(name="create")
+@argument("product_id", type=int)
+@option(
+    "--file",
+    "payload_path",
+    required=True,
+    type=str,
+    help="Path to a YAML file describing the product version payload.",
+)
+@pass_state
+@catchall
+def create_version(
+        state: CLIState,
+        product_id: int,
+        payload_path: str) -> None:
+    """
+    Create a product version.
+    """
 
-        emit(result, state)
+    payload = load_yaml(payload_path, model=VersionCreate)
+    version = state.client.create_product_version(product_id, payload)
+    render_version(version, state.yaml_output)
+
+
+@version.command(name="update")
+@argument("product_id", type=int)
+@argument("version_id", type=int)
+@option(
+    "--file",
+    "payload_path",
+    required=True,
+    type=str,
+    help="Path to a YAML file describing the product version payload.",
+)
+@pass_state
+@catchall
+def update_version(
+        state: CLIState,
+        product_id: int,
+        version_id: int,
+        payload_path: str) -> None:
+    """
+    Update a product version.
+    """
+
+    payload = load_yaml(payload_path, model=VersionCreate)
+    version = state.client.update_product_version(product_id, version_id, payload)
+    render_version(version, state.yaml_output)
+
+
+@version.command(name="delete")
+@argument("product_id", type=int)
+@argument("version_id", type=int)
+@pass_state
+@catchall
+def delete_version(
+        state: CLIState,
+        product_id: int,
+        version_id: int) -> None:
+    """
+    Delete a product version.
+    """
+
+    state.client.delete_product_version(product_id, version_id)
+    echo("Success.")
 
 
 # The end.

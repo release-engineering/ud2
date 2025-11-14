@@ -1,6 +1,6 @@
-""
-"Shared pagination response models."
-""
+"""
+Shared pagination response models.
+"""
 
 
 from typing import List

@@ -98,7 +98,7 @@ except ImportError:
             if pre:
                 work = func
             else:
-                work = lambda cls, v, values=None: func(cls, v)
+                work = lambda cls, v, values=None: func(cls, v)  # noqa: E731
             return _validator(field, *fields, pre=pre, always=True, allow_reuse=True)(work)
 
         return decorator

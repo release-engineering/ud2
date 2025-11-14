@@ -17,7 +17,7 @@ Primary client for interacting with UDv2 REST endpoints.
 
 
 import logging
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, Iterator, List, Optional, Type, Union
 
 try:
     from typing import get_args, get_origin
@@ -87,14 +87,15 @@ class UDClient:
         else:
             verify = config.verify
         self._session.verify = verify
-        print(f"verify: {verify}")
-        print(f"config.ca_cert: {config.ca_cert}")
-        print(f"config.verify: {config.verify}")
-        print(f"config.client_cert: {config.client_cert}")
-        print(f"config.client_key: {config.client_key}")
-        print(f"config.base_url: {config.base_url}")
-        print(f"config.timeout: {config.timeout}")
-        print(f"config.name: {config.name}")
+
+        logger.debug(f"verify: {verify}")
+        logger.debug(f"config.ca_cert: {config.ca_cert}")
+        logger.debug(f"config.verify: {config.verify}")
+        logger.debug(f"config.client_cert: {config.client_cert}")
+        logger.debug(f"config.client_key: {config.client_key}")
+        logger.debug(f"config.base_url: {config.base_url}")
+        logger.debug(f"config.timeout: {config.timeout}")
+        logger.debug(f"config.name: {config.name}")
 
         self._timeout = config.timeout
 
@@ -133,16 +134,76 @@ class UDClient:
         return self._request('DELETE', path, **kwargs)
 
 
-    def list_products(
+    def page_products(
             self,
-            params: Optional[Dict[str, Any]] = None) -> PaginatedProducts:
+            page: Optional[int] = None,
+            limit: Optional[int] = None,
+            sort: Optional[str] = None) -> PaginatedProducts:
         """
-        Retrieve a paginated list of products.
+        Retrieve a single page of products.
 
-        :param params: Optional pagination parameters (`page`, `limit`, `sort`).
+        :param page: Page number used for pagination.
+        :param limit: Items per page for pagination.
+        :param sort: Optional sort order (`asc`, `desc`).
         """
+
+        params = self._build_list_params(page=page, limit=limit, sort=sort)
 
         return self.GET('/products', params=params, model=PaginatedProducts)
+
+
+    def iter_products(
+            self,
+            page: Optional[int] = None,
+            limit: Optional[int] = None,
+            sort: Optional[str] = None) -> Iterator[Product]:
+        """
+        Iterate over products, lazily requesting additional pages.
+
+        :param page: Optional explicit page number. When provided, only that page is requested.
+        :param limit: Items per page for pagination.
+        :param sort: Optional sort order (`asc`, `desc`).
+        """
+
+        explicit_page = page is not None
+        next_page = page if explicit_page else 1
+        current_limit = limit
+
+        while True:
+            page_obj = self.page_products(
+                page=next_page,
+                limit=current_limit,
+                sort=sort,
+            )
+
+            for product in page_obj.data:
+                yield product
+
+            if explicit_page:
+                break
+
+            if page_obj.total_pages <= 1 or page_obj.page >= page_obj.total_pages:
+                break
+
+            next_page = page_obj.page + 1
+            current_limit = page_obj.limit
+
+
+    def list_products(
+            self,
+            page: Optional[int] = None,
+            limit: Optional[int] = None,
+            sort: Optional[str] = None) -> List[Product]:
+        """
+        Collect products into a list, automatically iterating all pages when pagination is unset.
+
+        :param page: Optional explicit page number. When provided, only that page is requested.
+        :param limit: Items per page for pagination.
+        :param sort: Optional sort order (`asc`, `desc`).
+        :returns: List of products.
+        """
+
+        return list(self.iter_products(page=page, limit=limit, sort=sort))
 
 
     def create_product(self, payload: Payload) -> Product:
@@ -189,7 +250,7 @@ class UDClient:
         self.DELETE(f'/products/{product_id}')
 
 
-    def list_product_versions(self, product_id: int) -> ResponseVersions:
+    def list_product_versions(self, product_id: int) -> List[Version]:
         """
         Retrieve versions for a product.
 
@@ -197,10 +258,12 @@ class UDClient:
         :returns: Versions associated with the product.
         """
 
-        return self.GET(
+        response = self.GET(
             f'/products/{product_id}/product_versions',
             model=ResponseVersions,
         )
+
+        return list(response.data)
 
 
     def create_product_version(
@@ -269,21 +332,93 @@ class UDClient:
         self.DELETE(f'/products/{product_id}/product_versions/{version_id}')
 
 
-    def list_repositories(
+    def page_repositories(
             self,
             product_version_id: int,
-            params: Optional[Dict[str, Any]] = None) -> PaginatedRepositories:
+            page: Optional[int] = None,
+            limit: Optional[int] = None,
+            sort: Optional[str] = None) -> PaginatedRepositories:
         """
-        Retrieve repositories for a product version.
+        Retrieve a single page of repositories for a product version.
 
         :param product_version_id: Product version identifier.
-        :param params: Optional pagination parameters (`page`, `limit`, `sort`).
+        :param page: Page number used for pagination.
+        :param limit: Items per page for pagination.
+        :param sort: Optional sort order (`asc`, `desc`).
         """
+
+        params = self._build_list_params(page=page, limit=limit, sort=sort)
 
         return self.GET(
             f'/product_versions/{product_version_id}/repositories',
             params=params,
             model=PaginatedRepositories,
+        )
+
+
+    def iter_repositories(
+            self,
+            product_version_id: int,
+            page: Optional[int] = None,
+            limit: Optional[int] = None,
+            sort: Optional[str] = None) -> Iterator[Repository]:
+        """
+        Iterate over repositories for a product version, lazily requesting additional pages.
+
+        :param product_version_id: Product version identifier.
+        :param page: Optional explicit page number. When provided, only that page is requested.
+        :param limit: Items per page for pagination.
+        :param sort: Optional sort order (`asc`, `desc`).
+        """
+
+        explicit_page = page is not None
+        next_page = page if explicit_page else 1
+        current_limit = limit
+
+        while True:
+            page_obj = self.page_repositories(
+                product_version_id=product_version_id,
+                page=next_page,
+                limit=current_limit,
+                sort=sort,
+            )
+
+            for repository in page_obj.data:
+                yield repository
+
+            if explicit_page:
+                break
+
+            if page_obj.total_pages <= 1 or page_obj.page >= page_obj.total_pages:
+                break
+
+            next_page = page_obj.page + 1
+            current_limit = page_obj.limit
+
+
+    def list_repositories(
+            self,
+            product_version_id: int,
+            page: Optional[int] = None,
+            limit: Optional[int] = None,
+            sort: Optional[str] = None) -> List[Repository]:
+        """
+        Collect repositories into a list, automatically iterating all pages when pagination is unset.
+
+        :param product_version_id: Product version identifier.
+        :param page: Optional explicit page number. When provided, only that page is requested.
+        :param limit: Items per page for pagination.
+        :param sort: Optional sort order (`asc`, `desc`).
+        :returns: List of repositories.
+        """
+
+        return list(
+            self.iter_repositories(
+                product_version_id=product_version_id,
+                page=page,
+                limit=limit,
+                sort=sort,
+            ),
         )
 
 
@@ -361,6 +496,29 @@ class UDClient:
         )
 
 
+    @staticmethod
+    def _build_list_params(
+            page: Optional[int],
+            limit: Optional[int],
+            sort: Optional[str]) -> Optional[Dict[str, Any]]:
+        """
+        Build pagination parameters for list endpoints.
+        """
+
+        params: Dict[str, Any] = {}
+
+        if page is not None:
+            params['page'] = page
+
+        if limit is not None:
+            params['limit'] = limit
+
+        if sort is not None:
+            params['sort'] = sort
+
+        return params or None
+
+
     def _request(
             self,
             method: str,
@@ -407,10 +565,6 @@ def coerce_model(data: Any, model: Any) -> Any:
     """
     Convert JSON data into the requested model shape.
     """
-
-    print(f"COERCING data type: {type(data)}")
-    print(f"COERCING data: {data}")
-    print(f"COERCING model: {model}")
 
     origin = get_origin(model)
     if origin in (list, List):

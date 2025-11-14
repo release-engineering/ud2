@@ -7,7 +7,7 @@ import requests
 from ud2.client import UDClient
 from ud2.config import UDConfig
 from ud2.models import (PaginatedProducts, PaginatedRepositories, Product,
-                        Repository, ResponseVersions, Version)
+                        Repository, Version)
 
 from . import (DEFAULT_SHA256, dump_model, make_paginated_products,
                make_paginated_repositories, make_product, make_product_create,
@@ -79,7 +79,7 @@ class TestUDClient(unittest.TestCase):
             verify=True,
         )
 
-    def test_list_products_uses_products_endpoint(self) -> None:
+    def test_page_products_uses_products_endpoint(self) -> None:
         session = StubSession([
             StubResponse(
                 headers={'Content-Type': 'application/json'},
@@ -96,7 +96,7 @@ class TestUDClient(unittest.TestCase):
         ])
         client = UDClient(config=self.config, session=session)
 
-        payload = client.list_products(params={'page': 2})
+        payload = client.page_products(page=2)
 
         self.assertEqual(len(session.requests), 1)
         captured = session.requests[0]
@@ -109,6 +109,50 @@ class TestUDClient(unittest.TestCase):
         self.assertIsInstance(payload, PaginatedProducts)
         self.assertEqual(payload.data, [])
         self.assertEqual(payload.limit, 10)
+
+    def test_list_products_collects_all_pages(self) -> None:
+        session = StubSession([
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data=dump_model(
+                    make_paginated_products(
+                        products=[
+                            make_product(id=1, name='One'),
+                        ],
+                        limit=1,
+                        page=1,
+                        total=2,
+                        total_pages=2,
+                    ),
+                ),
+            ),
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data=dump_model(
+                    make_paginated_products(
+                        products=[
+                            make_product(id=2, name='Two'),
+                        ],
+                        limit=1,
+                        page=2,
+                        total=2,
+                        total_pages=2,
+                    ),
+                ),
+            ),
+        ])
+        client = UDClient(config=self.config, session=session)
+
+        products = client.list_products()
+
+        self.assertEqual(len(products), 2)
+        self.assertTrue(all(isinstance(item, Product) for item in products))
+        self.assertEqual({item.id for item in products}, {1, 2})
+        self.assertEqual(len(session.requests), 2)
+        first_request = session.requests[0]
+        second_request = session.requests[1]
+        self.assertEqual(first_request['params'], {'page': 1})
+        self.assertEqual(second_request['params'], {'page': 2, 'limit': 1})
 
     def test_create_product_returns_model(self) -> None:
         session = StubSession([
@@ -157,7 +201,7 @@ class TestUDClient(unittest.TestCase):
         UDClient(config=config, session=session)
 
         self.assertEqual(session.verify, str(ca_path))
-    def test_list_product_versions_coerces_models(self) -> None:
+    def test_list_product_versions_returns_versions(self) -> None:
         session = StubSession([
             StubResponse(
                 headers={'Content-Type': 'application/json'},
@@ -173,12 +217,10 @@ class TestUDClient(unittest.TestCase):
         client = UDClient(config=self.config, session=session)
 
         response = client.list_product_versions(product_id=10)
-        self.assertIsInstance(response, ResponseVersions)
-        versions = response.data
 
-        self.assertEqual(len(versions), 1)
-        self.assertIsInstance(versions[0], Version)
-        self.assertEqual(versions[0].product_id, 10)
+        self.assertEqual(len(response), 1)
+        self.assertIsInstance(response[0], Version)
+        self.assertEqual(response[0].product_id, 10)
         captured = session.requests[0]
         self.assertEqual(captured['method'], 'GET')
         self.assertEqual(
@@ -227,7 +269,7 @@ class TestUDClient(unittest.TestCase):
             payload.model_dump(by_alias=True, exclude_none=True),
         )
 
-    def test_list_repositories_returns_paginated_model(self) -> None:
+    def test_page_repositories_returns_paginated_model(self) -> None:
         session = StubSession([
             StubResponse(
                 headers={'Content-Type': 'application/json'},
@@ -244,9 +286,9 @@ class TestUDClient(unittest.TestCase):
         ])
         client = UDClient(config=self.config, session=session)
 
-        result = client.list_repositories(
+        result = client.page_repositories(
             product_version_id=11,
-            params={'limit': 5},
+            limit=5,
         )
 
         self.assertIsInstance(result, PaginatedRepositories)
@@ -258,6 +300,50 @@ class TestUDClient(unittest.TestCase):
             'https://downloads.example.test/api/product_versions/11/repositories',
         )
         self.assertEqual(captured['params'], {'limit': 5})
+
+    def test_list_repositories_collects_all_pages(self) -> None:
+        session = StubSession([
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data=dump_model(
+                    make_paginated_repositories(
+                        repositories=[
+                            make_repository(id=1),
+                        ],
+                        limit=1,
+                        page=1,
+                        total=2,
+                        total_pages=2,
+                    ),
+                ),
+            ),
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data=dump_model(
+                    make_paginated_repositories(
+                        repositories=[
+                            make_repository(id=2),
+                        ],
+                        limit=1,
+                        page=2,
+                        total=2,
+                        total_pages=2,
+                    ),
+                ),
+            ),
+        ])
+        client = UDClient(config=self.config, session=session)
+
+        repositories = client.list_repositories(product_version_id=11)
+
+        self.assertEqual(len(repositories), 2)
+        self.assertTrue(all(isinstance(item, Repository) for item in repositories))
+        self.assertEqual({item.id for item in repositories}, {1, 2})
+        self.assertEqual(len(session.requests), 2)
+        first_request = session.requests[0]
+        second_request = session.requests[1]
+        self.assertEqual(first_request['params'], {'page': 1})
+        self.assertEqual(second_request['params'], {'page': 2, 'limit': 1})
 
     def test_delete_repository_uses_nested_endpoint(self) -> None:
         session = StubSession([
