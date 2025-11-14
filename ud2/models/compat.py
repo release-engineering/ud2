@@ -33,11 +33,13 @@ try:
 
     class BaseModel(_BaseModel):
         model_config = ConfigDict(
+            serialize_by_alias=True,
             validate_by_alias=True,
             validate_by_name=True)
 
     class StrictModel(_BaseModel):
         model_config = ConfigDict(
+            serialize_by_alias=True,
             validate_by_alias=True,
             validate_by_name=True,
             extra='forbid')

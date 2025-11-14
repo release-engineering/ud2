@@ -26,7 +26,6 @@ class TestCliRunnerSmoke(unittest.TestCase):
         )
 
         result = self.runner.invoke(cli_main, ["product", "list"])
-        print(result.output)
 
         self.assertEqual(result.exit_code, 0, result.output)
         client.list_products.assert_called_once_with(sort=None)

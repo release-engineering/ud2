@@ -64,10 +64,7 @@ class Version(VersionBase):
     """
 
     id: int
-    product_id: int = Field(
-        alias='productId',
-        serialization_alias='productId',
-    )
+    product_id: int = Field(alias='productId')
 
 
 # The end.

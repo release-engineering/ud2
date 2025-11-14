@@ -67,12 +67,17 @@ verification, while `prod` points to the production endpoint and enforces strict
 TLS settings.
 
 .. code-block:: ini
+   [default]
+   # the default environment to use if --env is not specified.
+   default_environment = dev
+
+   # other options apply to all environments unless overridden.
+   timeout = 5
 
    [dev]
    base_url = https://staging.downloads.example.com/api/v1
    client_cert = ~/.config/ud2/certs/dev-client.crt
    client_key = ~/.config/ud2/certs/dev-client.key
-   timeout = 5
    verify = false
 
    [prod]
@@ -86,7 +91,7 @@ Select an environment when running commands:
 
 .. code-block:: bash
 
-   ud2 --env dev products list
+   ud2 --env prod products list
 
 
 Troubleshooting

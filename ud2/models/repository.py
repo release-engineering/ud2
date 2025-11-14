@@ -30,12 +30,9 @@ class RepositoryBase(StrictModel):
     file_size: int = Field(alias='fileSize')
     sha256: str
 
-    content_types: Optional[List[str]] = Field(
-        alias='contentTypes', default=None)
-    installation: Optional[str] = Field(
-        alias='Installation', default=None)
-    long_description: Optional[str] = Field(
-        alias='longDescription', default=None)
+    content_types: List[str] = Field(alias='contentTypes', default_factory=list)
+    installation: Optional[str] = Field(alias='installation', default=None)
+    long_description: Optional[str] = Field(alias='longDescription', default=None)
 
     @field_validator('file_size')
     def _validate_file_size(cls, value: int) -> int:
@@ -93,26 +90,10 @@ class Repository(RepositoryBase):
     """
 
     id: int
-    product_name: Optional[str] = Field(
-        default=None,
-        alias='productName',
-        serialization_alias='productName',
-    )
-    product_version: Optional[str] = Field(
-        default=None,
-        alias='productVersion',
-        serialization_alias='productVersion',
-    )
-    publish_date: Optional[datetime] = Field(
-        default=None,
-        alias='publishDate',
-        serialization_alias='publishDate',
-    )
-    update_date: Optional[datetime] = Field(
-        default=None,
-        alias='updateDate',
-        serialization_alias='updateDate',
-    )
+    product_name: Optional[str] = Field(alias='productName', default=None)
+    product_version: Optional[str] = Field(alias='productVersion', default=None)
+    publish_date: Optional[datetime] = Field(alias='publishDate', default=None)
+    update_date: Optional[datetime] = Field(alias='updateDate', default=None)
 
     @field_validator('publish_date', 'update_date', mode='before')
     def _parse_datetime(cls, value: Optional[str]) -> Optional[datetime]:

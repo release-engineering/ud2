@@ -47,12 +47,12 @@ def render_version(version: Version, yaml: bool) -> None:
         pretty_yaml(version)
         return
 
-    echo(f"{version.version} [ID: {version.id}]")
-    echo(f"Architecture: {version.architecture.value if version.architecture else ''}")
-    echo(f"Platform: {version.platform.value if version.platform else ''}")
-    echo(f"Visibility: {version.visibility.value if version.visibility else ''}")
-    echo(f"Created At: {version.created_at.isoformat() if version.created_at else ''}")
-    echo(f"Updated At: {version.updated_at.isoformat() if version.updated_at else ''}")
+    echo(f"Version: {version.version} [ID: {version.id}]")
+    echo(f"  Product ID: {version.product_id}")
+    echo(f"  CPE: {version.cpe}")
+    echo(f"  Architecture: {version.architecture.value if version.architecture else ''}")
+    echo(f"  Platform: {version.platform.value if version.platform else ''}")
+    echo(f"  Visibility: {version.visibility.value if version.visibility else ''}")
 
 
 @group(name="version", help="Product version operations.")

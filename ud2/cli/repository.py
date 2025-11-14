@@ -45,16 +45,15 @@ def render_repository(repository: Repository, yaml: bool) -> None:
         pretty_yaml(repository)
         return
 
-    echo(f"Description: {repository.description}  [ID: {repository.id}]")
-    echo(f"File Name: {repository.file_name}")
-    echo(f"File Size: {repository.file_size}")
-    echo(f"Visibility: {repository.visibility.value if repository.visibility else ''}")
-    echo(f"Product: {repository.product_name or ''}")
-    echo(f"Version: {repository.product_version or ''}")
-    echo(f"Architecture: {repository.architecture.value if repository.architecture else ''}")
-    echo(f"Platform: {repository.platform.value if repository.platform else ''}")
-    echo(f"Created At: {repository.created_at.isoformat() if repository.created_at else ''}")
-    echo(f"Updated At: {repository.updated_at.isoformat() if repository.updated_at else ''}")
+    echo(f"Repository: {repository.description} [ID: {repository.id}]")
+    echo(f"  Product: {repository.product_name or ''}")
+    echo(f"  Version: {repository.product_version or ''}")
+    echo(f"  File Name: {repository.file_name}")
+    echo(f"  File Size: {repository.file_size}")
+    echo(f"  SHA256: {repository.sha256}")
+    echo(f"  Content Types: {', '.join(repository.content_types)}")
+    echo(f"  Published: {repository.publish_date.isoformat() if repository.publish_date else ''}")
+    echo(f"  Updated: {repository.update_date.isoformat() if repository.update_date else ''}")
 
 
 @group(name="repository", help="Repository operations.")

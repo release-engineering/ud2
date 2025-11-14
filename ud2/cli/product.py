@@ -43,12 +43,13 @@ def render_product(product: Product, yaml: bool) -> None:
         pretty_yaml(product)
         return
 
-    echo(f"{product.name} [ID: {product.id}]")
-    echo(f"Engineering ID: {product.eng_id}")
-    echo(f"Product Code: {product.product_code}")
-    echo(f"Visibility: {product.visibility.value if product.visibility else ''}")
-    echo(f"Architecture: {product.architecture.value if product.architecture else ''}")
-    echo(f"Platform: {product.platform.value if product.platform else ''}")
+    echo(f"Product: {product.name} [ID: {product.id}]")
+    echo(f"  Engineering ID: {product.eng_id}")
+    echo(f"  Category: {product.category}")
+    echo(f"  Arch: {product.arch.value if product.arch else ''}")
+    echo(f"  Product Code: {product.product_code}")
+    echo(f"  Product Group: {product.product_group}")
+    echo(f"  Product Group Name: {product.product_group_name}")
 
 
 @group(name="product", help="Product related operations.")
