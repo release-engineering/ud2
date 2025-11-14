@@ -13,6 +13,14 @@ common release tasks scriptable, auditable, and easy to repeat.
 
 ## Quick Start
 
+Using direct from the checkout (requires uv)
+
+```bash
+uv venv --system-site-packages
+uv pip install -e .  # install in editable mode
+uv run ud2 --help
+```
+
 Install from source (requires Python 3.7+):
 
 ```bash
