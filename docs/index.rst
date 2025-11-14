@@ -26,5 +26,6 @@ release-engineering workflows against the Unified Downloads REST API.
    :caption: Project Reference
 
    overview
+   api/index
 
 .. The end.

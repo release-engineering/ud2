@@ -2,9 +2,6 @@
 Sphinx configuration for the ud2 documentation.
 """
 
-import configparser
-from datetime import datetime
-from pathlib import Path
 
 def load_setup():
     from configparser import ConfigParser
@@ -31,6 +28,9 @@ load_setup()
 extensions = [
     'myst_parser',
     'sphinxcontrib.mermaid',
+    'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
+    'sphinx.ext.napoleon',
 ]
 
 templates_path = ['_templates']
@@ -58,6 +58,8 @@ myst_fence_as_directive = [
 ]
 
 mermaid_version = '10.9.1'
+
+autosummary_generate = True
 
 
 # The end.
