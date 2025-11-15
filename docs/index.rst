@@ -12,6 +12,7 @@ release-engineering workflows against the Unified Downloads REST API.
 
    overview
    api/index
+   coverage
 
 .. toctree::
    :maxdepth: 1

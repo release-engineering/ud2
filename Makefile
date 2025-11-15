@@ -42,6 +42,9 @@ build:
 
 
 docs:
+	@tox -qe py-cover
+	@tox -qe compat-cover
+	@tox -qe coverage-report
 	@tox -qe docs
 
 
