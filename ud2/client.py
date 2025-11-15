@@ -21,7 +21,9 @@ from typing import Any, Dict, Iterator, List, Optional, Type, Union
 
 try:
     from typing import get_args, get_origin
+
 except ImportError:
+    # Python 3.7 compatibility
     def get_origin(annotation: Any) -> Optional[Any]:
         return getattr(annotation, '__origin__', None)
 
@@ -33,30 +35,12 @@ import requests
 from pydantic import BaseModel
 
 from .config import UDConfig
-from .models import (
-    PaginatedProducts,
-    PaginatedRepositories,
-    Product,
-    ProductCreate,
-    Repository,
-    RepositoryCreate,
-    Version,
-    VersionCreate,
-    ResponseVersions,
-)
+from .models import (PaginatedProducts, PaginatedRepositories, Product,
+                     ProductCreate, Repository, RepositoryCreate,
+                     ResponseVersions, Version, VersionCreate)
 
 
 logger = logging.getLogger('UDClient')
-
-Payload = Union[
-    Product,
-    ProductCreate,
-    Version,
-    VersionCreate,
-    Repository,
-    RepositoryCreate,
-    Dict[str, Any],
-]
 
 
 class UDClient:
@@ -68,41 +52,47 @@ class UDClient:
         """
         Initialize the client with the given configuration.
 
+        Note that if a session is provided, it will be used as is and settings
+        from the configuration will be ignored.
+
         :param config: Resolved configuration detailing server and client certificate information.
-        :param session: Optional pre-configured requests session for dependency injection.
+        :param session: Optional pre-configured requests session
         """
 
         self._config = config
-
-        self._session = session or requests.Session()
-        self._session.cert = (
-            str(config.client_cert),
-            str(config.client_key),
-        )
-        self._session.headers.setdefault('Accept', 'application/json')
-        self._session.headers.setdefault('Content-Type', 'application/json')
-
-        if config.ca_cert is not None:
-            verify = str(config.ca_cert)
-        else:
-            verify = config.verify
-        self._session.verify = verify
-
-        logger.debug(f"verify: {verify}")
-        logger.debug(f"config.ca_cert: {config.ca_cert}")
-        logger.debug(f"config.verify: {config.verify}")
+        logger.debug(f"config.name: {config.name}")
+        logger.debug(f"config.base_url: {config.base_url}")
         logger.debug(f"config.client_cert: {config.client_cert}")
         logger.debug(f"config.client_key: {config.client_key}")
-        logger.debug(f"config.base_url: {config.base_url}")
+        logger.debug(f"config.ca_cert: {config.ca_cert}")
+        logger.debug(f"config.verify: {config.verify}")
         logger.debug(f"config.timeout: {config.timeout}")
-        logger.debug(f"config.name: {config.name}")
 
         self._timeout = config.timeout
-
         self._base_url = config.base_url.rstrip('/')
 
+        if session:
+            logger.debug("Using provided session")
+        else:
+            logger.debug("Creating new session")
 
-    def GET(self, path: str, **kwargs: Any) -> Any:
+            session = requests.Session()
+            session.cert = (
+                str(config.client_cert),
+                str(config.client_key),
+            )
+            session.headers.setdefault('Accept', 'application/json')
+            session.headers.setdefault('Content-Type', 'application/json')
+            if config.ca_cert is not None:
+                verify = str(config.ca_cert)
+            else:
+                verify = config.verify
+            session.verify = verify
+
+        self._session = session
+
+
+    def _GET(self, path: str, **kwargs: Any) -> Any:
         """
         Make a GET request to the given path.
         """
@@ -110,7 +100,7 @@ class UDClient:
         return self._request('GET', path, **kwargs)
 
 
-    def POST(self, path: str, **kwargs: Any) -> Any:
+    def _POST(self, path: str, **kwargs: Any) -> Any:
         """
         Make a POST request to the given path.
         """
@@ -118,7 +108,7 @@ class UDClient:
         return self._request('POST', path, **kwargs)
 
 
-    def PUT(self, path: str, **kwargs: Any) -> Any:
+    def _PUT(self, path: str, **kwargs: Any) -> Any:
         """
         Make a PUT request to the given path.
         """
@@ -126,7 +116,7 @@ class UDClient:
         return self._request('PUT', path, **kwargs)
 
 
-    def DELETE(self, path: str, **kwargs: Any) -> Any:
+    def _DELETE(self, path: str, **kwargs: Any) -> Any:
         """
         Make a DELETE request to the given path.
         """
@@ -149,64 +139,62 @@ class UDClient:
 
         params = self._build_list_params(page=page, limit=limit, sort=sort)
 
-        return self.GET('/products', params=params, model=PaginatedProducts)
+        return self._GET('/products', params=params, model=PaginatedProducts)
 
 
     def iter_products(
             self,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
-            sort: Optional[str] = None) -> Iterator[Product]:
+            sort: Optional[str] = None,
+            page_size: Optional[int] = 100) -> Iterator[Product]:
         """
         Iterate over products, lazily requesting additional pages.
 
-        :param page: Optional explicit page number. When provided, only that page is requested.
-        :param limit: Items per page for pagination.
         :param sort: Optional sort order (`asc`, `desc`).
+        :param page_size: Items per page for pagination. Defaults to 100.
         """
 
-        explicit_page = page is not None
-        next_page = page if explicit_page else 1
-        current_limit = limit
+        next_page = 1
 
         while True:
             page_obj = self.page_products(
                 page=next_page,
-                limit=current_limit,
+                limit=page_size,
                 sort=sort,
             )
 
-            for product in page_obj.data:
-                yield product
+            yield from page_obj.data
 
-            if explicit_page:
+            # the API may have downgraded the page size, so we need to use the
+            # actual page size in our checks and future calls.
+            page_size = page_obj.limit
+
+            if page_obj.page >= page_obj.total_pages:
                 break
 
-            if page_obj.total_pages <= 1 or page_obj.page >= page_obj.total_pages:
+            # safety net.
+            if len(page_obj.data) < page_size:
                 break
 
             next_page = page_obj.page + 1
-            current_limit = page_obj.limit
 
 
     def list_products(
             self,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
-            sort: Optional[str] = None) -> List[Product]:
+            sort: Optional[str] = None,
+            page_size: Optional[int] = None) -> List[Product]:
         """
         Collect products into a list, automatically iterating all pages when pagination is unset.
 
-        :param page: Optional explicit page number. When provided, only that page is requested.
-        :param limit: Items per page for pagination.
         :param sort: Optional sort order (`asc`, `desc`).
+        :param page_size: Items per page for pagination.
+
         :returns: List of products.
         """
 
-        return list(self.iter_products(page=page, limit=limit, sort=sort))
+        return list(self.iter_products(sort=sort, page_size=page_size))
 
 
-    def create_product(self, payload: Payload) -> Product:
+    def create_product(self, payload: ProductCreate) -> Product:
         """
         Create a product resource.
 
@@ -214,7 +202,7 @@ class UDClient:
         :returns: Newly created product.
         """
 
-        return self.POST('/products', payload=payload, model=Product)
+        return self._POST('/products', payload=payload, model=Product)
 
 
     def get_product(self, product_id: int) -> Product:
@@ -225,10 +213,10 @@ class UDClient:
         :returns: Product representation.
         """
 
-        return self.GET(f'/products/{product_id}', model=Product)
+        return self._GET(f'/products/{product_id}', model=Product)
 
 
-    def update_product(self, product_id: int, payload: Payload) -> Product:
+    def update_product(self, product_id: int, payload: ProductCreate) -> Product:
         """
         Update an existing product.
 
@@ -237,7 +225,7 @@ class UDClient:
         :returns: Updated product.
         """
 
-        return self.PUT(f'/products/{product_id}', payload=payload, model=Product)
+        return self._PUT(f'/products/{product_id}', payload=payload, model=Product)
 
 
     def delete_product(self, product_id: int) -> None:
@@ -247,7 +235,7 @@ class UDClient:
         :param product_id: Product identifier.
         """
 
-        self.DELETE(f'/products/{product_id}')
+        self._DELETE(f'/products/{product_id}')
 
 
     def list_product_versions(self, product_id: int) -> List[Version]:
@@ -258,7 +246,7 @@ class UDClient:
         :returns: Versions associated with the product.
         """
 
-        response = self.GET(
+        response = self._GET(
             f'/products/{product_id}/product_versions',
             model=ResponseVersions,
         )
@@ -269,7 +257,7 @@ class UDClient:
     def create_product_version(
             self,
             product_id: int,
-            payload: Payload) -> Version:
+            payload: VersionCreate) -> Version:
         """
         Create a product version.
 
@@ -278,7 +266,7 @@ class UDClient:
         :returns: Newly created version.
         """
 
-        return self.POST(
+        return self._POST(
             f'/products/{product_id}/product_versions',
             payload=payload,
             model=Version,
@@ -294,7 +282,7 @@ class UDClient:
         :returns: Version representation.
         """
 
-        return self.GET(
+        return self._GET(
             f'/products/{product_id}/product_versions/{version_id}',
             model=Version,
         )
@@ -304,7 +292,7 @@ class UDClient:
             self,
             product_id: int,
             version_id: int,
-            payload: Payload) -> Version:
+            payload: VersionCreate) -> Version:
         """
         Update a product version.
 
@@ -314,7 +302,7 @@ class UDClient:
         :returns: Updated version.
         """
 
-        return self.PUT(
+        return self._PUT(
             f'/products/{product_id}/product_versions/{version_id}',
             payload=payload,
             model=Version,
@@ -329,7 +317,7 @@ class UDClient:
         :param version_id: Version identifier.
         """
 
-        self.DELETE(f'/products/{product_id}/product_versions/{version_id}')
+        self._DELETE(f'/products/{product_id}/product_versions/{version_id}')
 
 
     def page_repositories(
@@ -349,7 +337,7 @@ class UDClient:
 
         params = self._build_list_params(page=page, limit=limit, sort=sort)
 
-        return self.GET(
+        return self._GET(
             f'/product_versions/{product_version_id}/repositories',
             params=params,
             model=PaginatedRepositories,
@@ -359,65 +347,61 @@ class UDClient:
     def iter_repositories(
             self,
             product_version_id: int,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
-            sort: Optional[str] = None) -> Iterator[Repository]:
+            sort: Optional[str] = None,
+            page_size: Optional[int] = 100) -> Iterator[Repository]:
         """
         Iterate over repositories for a product version, lazily requesting additional pages.
 
         :param product_version_id: Product version identifier.
-        :param page: Optional explicit page number. When provided, only that page is requested.
-        :param limit: Items per page for pagination.
         :param sort: Optional sort order (`asc`, `desc`).
+        :param page_size: Items per page for pagination. Defaults to 100.
         """
 
-        explicit_page = page is not None
-        next_page = page if explicit_page else 1
-        current_limit = limit
+        next_page = 1
 
         while True:
             page_obj = self.page_repositories(
                 product_version_id=product_version_id,
                 page=next_page,
-                limit=current_limit,
+                limit=page_size,
                 sort=sort,
             )
 
-            for repository in page_obj.data:
-                yield repository
+            yield from page_obj.data
 
-            if explicit_page:
+            # the API may have downgraded the page size, so we need to use the
+            # actual page size in our checks and future calls.
+            page_size = page_obj.limit
+
+            if page_obj.page >= page_obj.total_pages:
                 break
 
-            if page_obj.total_pages <= 1 or page_obj.page >= page_obj.total_pages:
+            # safety net.
+            if len(page_obj.data) < page_size:
                 break
 
             next_page = page_obj.page + 1
-            current_limit = page_obj.limit
 
 
     def list_repositories(
             self,
             product_version_id: int,
-            page: Optional[int] = None,
-            limit: Optional[int] = None,
-            sort: Optional[str] = None) -> List[Repository]:
+            sort: Optional[str] = None,
+            page_size: Optional[int] = 100) -> List[Repository]:
         """
         Collect repositories into a list, automatically iterating all pages when pagination is unset.
 
         :param product_version_id: Product version identifier.
-        :param page: Optional explicit page number. When provided, only that page is requested.
-        :param limit: Items per page for pagination.
         :param sort: Optional sort order (`asc`, `desc`).
+        :param page_size: Items per page for pagination. Defaults to 100.
         :returns: List of repositories.
         """
 
         return list(
             self.iter_repositories(
                 product_version_id=product_version_id,
-                page=page,
-                limit=limit,
                 sort=sort,
+                page_size=page_size,
             ),
         )
 
@@ -425,7 +409,7 @@ class UDClient:
     def create_repository(
             self,
             product_version_id: int,
-            payload: Payload) -> Repository:
+            payload: RepositoryCreate) -> Repository:
         """
         Create a repository for a product version.
 
@@ -434,7 +418,7 @@ class UDClient:
         :returns: Newly created repository.
         """
 
-        return self.POST(
+        return self._POST(
             f'/product_versions/{product_version_id}/repositories',
             payload=payload,
             model=Repository,
@@ -453,7 +437,7 @@ class UDClient:
         :returns: Repository representation.
         """
 
-        return self.GET(
+        return self._GET(
             f'/product_versions/{product_version_id}/repositories/{repository_id}',
             model=Repository,
         )
@@ -463,7 +447,7 @@ class UDClient:
             self,
             product_version_id: int,
             repository_id: int,
-            payload: Payload) -> Repository:
+            payload: RepositoryCreate) -> Repository:
         """
         Update a repository.
 
@@ -473,7 +457,7 @@ class UDClient:
         :returns: Updated repository.
         """
 
-        return self.PUT(
+        return self._PUT(
             f'/product_versions/{product_version_id}/repositories/{repository_id}',
             payload=payload,
             model=Repository,
@@ -491,7 +475,7 @@ class UDClient:
         :param repository_id: Repository identifier.
         """
 
-        self.DELETE(
+        self._DELETE(
             f'/product_versions/{product_version_id}/repositories/{repository_id}',
         )
 
@@ -523,7 +507,7 @@ class UDClient:
             self,
             method: str,
             path: str,
-            payload: Optional[Payload] = None,
+            payload: Optional[Any] = None,
             model: Optional[Any] = None,
             params: Optional[Dict[str, Any]] = None) -> Any:
         """

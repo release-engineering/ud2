@@ -1,6 +1,7 @@
 import pathlib
 import unittest
 from typing import Any, Dict, List, Optional
+from unittest import mock
 
 import requests
 
@@ -143,7 +144,7 @@ class TestUDClient(unittest.TestCase):
         ])
         client = UDClient(config=self.config, session=session)
 
-        products = client.list_products()
+        products = client.list_products(page_size=None)
 
         self.assertEqual(len(products), 2)
         self.assertTrue(all(isinstance(item, Product) for item in products))
@@ -185,22 +186,6 @@ class TestUDClient(unittest.TestCase):
             payload.model_dump(by_alias=True, exclude_none=True),
         )
 
-    def test_ca_cert_overrides_verify_flag(self) -> None:
-        session = StubSession([])
-        ca_path = pathlib.Path('/tmp/ca.pem')
-        config = UDConfig(
-            name='test',
-            base_url='https://downloads.example.test/api',
-            client_cert=pathlib.Path('/tmp/cert.pem'),
-            client_key=pathlib.Path('/tmp/key.pem'),
-            timeout=5.0,
-            verify=False,
-            ca_cert=ca_path,
-        )
-
-        UDClient(config=config, session=session)
-
-        self.assertEqual(session.verify, str(ca_path))
     def test_list_product_versions_returns_versions(self) -> None:
         session = StubSession([
             StubResponse(
@@ -334,7 +319,7 @@ class TestUDClient(unittest.TestCase):
         ])
         client = UDClient(config=self.config, session=session)
 
-        repositories = client.list_repositories(product_version_id=11)
+        repositories = client.list_repositories(product_version_id=11, page_size=None)
 
         self.assertEqual(len(repositories), 2)
         self.assertTrue(all(isinstance(item, Repository) for item in repositories))
@@ -374,7 +359,96 @@ class TestUDClient(unittest.TestCase):
         client = UDClient(config=self.config, session=session)
 
         with self.assertRaises(ValueError):
-            client.GET('products')
+            client._GET('products')
+
+
+class TestUDClientSession(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.session_patcher = mock.patch('ud2.client.requests.Session')
+        self.mock_session_cls = self.session_patcher.start()
+        self.mock_session = mock.Mock()
+        self.mock_session.headers = {}
+        self.mock_session.verify = True
+        self.mock_session_cls.return_value = self.mock_session
+
+    def tearDown(self) -> None:
+        self.session_patcher.stop()
+
+    def test_session_configuration_uses_ca_cert(self) -> None:
+        config = UDConfig(
+            name='test',
+            base_url='https://downloads.example.test/api',
+            client_cert=pathlib.Path('/tmp/cert.pem'),
+            client_key=pathlib.Path('/tmp/key.pem'),
+            timeout=5.0,
+            verify=True,
+            ca_cert=pathlib.Path('/tmp/ca.pem'),
+        )
+
+        UDClient(config=config)
+
+        self.mock_session_cls.assert_called_once()
+        self.assertEqual(
+            self.mock_session.cert,
+            (
+                str(config.client_cert),
+                str(config.client_key),
+            ),
+        )
+        self.assertEqual(
+            self.mock_session.headers.get('Accept'),
+            'application/json',
+        )
+        self.assertEqual(
+            self.mock_session.headers.get('Content-Type'),
+            'application/json',
+        )
+        self.assertEqual(self.mock_session.verify, str(config.ca_cert))
+
+    def test_session_configuration_uses_verify_flag(self) -> None:
+        config = UDConfig(
+            name='test',
+            base_url='https://downloads.example.test/api',
+            client_cert=pathlib.Path('/tmp/cert.pem'),
+            client_key=pathlib.Path('/tmp/key.pem'),
+            timeout=5.0,
+            verify=False,
+            ca_cert=None,
+        )
+
+        UDClient(config=config)
+
+        self.mock_session_cls.assert_called_once()
+        self.assertEqual(self.mock_session.verify, False)
+
+    def test_provided_session_is_not_reconfigured(self) -> None:
+        config = UDConfig(
+            name='test',
+            base_url='https://downloads.example.test/api',
+            client_cert=pathlib.Path('/tmp/cert.pem'),
+            client_key=pathlib.Path('/tmp/key.pem'),
+            timeout=5.0,
+            verify=True,
+            ca_cert=None,
+        )
+        provided_session = mock.Mock()
+        provided_session.headers = {'Existing': 'value'}
+        provided_session.cert = ('existing-cert', 'existing-key')
+        provided_session.verify = 'unchanged'
+
+        UDClient(config=config, session=provided_session)
+
+        self.mock_session_cls.assert_not_called()
+        self.assertEqual(
+            provided_session.headers,
+            {'Existing': 'value'},
+        )
+        self.assertEqual(
+            provided_session.cert,
+            ('existing-cert', 'existing-key'),
+        )
+        self.assertEqual(provided_session.verify, 'unchanged')
 
 
 # The end.
