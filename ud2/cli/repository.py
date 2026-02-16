@@ -102,19 +102,17 @@ def list_repositories(
 
 
 @repository.command(name="get")
-@argument("product_version_id", type=int)
-@argument("repository_id", type=int)
+@argument("file_id", type=int)
 @pass_state
 @catchall
 def get_repository(
         state: CLIState,
-        product_version_id: int,
-        repository_id: int) -> None:
+        file_id: int) -> None:
     """
-    Retrieve a repository by identifier.
+    Retrieve a repository (file) by identifier.
     """
 
-    repository = state.client.get_repository(product_version_id, repository_id)
+    repository = state.client.get_repository(file_id)
     render_repository(repository, state.yaml_output)
 
 
@@ -138,40 +136,36 @@ def create_repository(
 
 
 @repository.command(name="update")
-@argument("product_version_id", type=int)
-@argument("repository_id", type=int)
+@argument("file_id", type=int)
 @option("--file", "payload_path", required=True,
         help="Path to a YAML file describing the repository payload.")
 @pass_state
 @catchall
 def update_repository(
         state: CLIState,
-        product_version_id: int,
-        repository_id: int,
+        file_id: int,
         payload_path: str) -> None:
     """
-    Update a repository for a product version.
+    Update a repository (file).
     """
 
     payload = load_yaml(payload_path, model=RepositoryCreate)
-    repository = state.client.update_repository(product_version_id, repository_id, payload)
+    repository = state.client.update_repository(file_id, payload)
     render_repository(repository, state.yaml_output)
 
 
 @repository.command(name="delete")
-@argument("product_version_id", type=int)
-@argument("repository_id", type=int)
+@argument("file_id", type=int)
 @pass_state
 @catchall
 def delete_repository(
         state: CLIState,
-        product_version_id: int,
-        repository_id: int) -> None:
+        file_id: int) -> None:
     """
-    Delete a repository for a product version.
+    Delete a repository (file).
     """
 
-    state.client.delete_repository(product_version_id, repository_id)
+    state.client.delete_repository(file_id)
     echo("Success.")
 
 

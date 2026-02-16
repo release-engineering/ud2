@@ -17,7 +17,7 @@ Primary client for interacting with UDv2 REST endpoints.
 
 
 import logging
-from typing import Any, Dict, Iterator, List, Optional, Type, Union
+from typing import Any, Dict, Iterator, List, Optional, Type
 
 try:
     from typing import get_args, get_origin
@@ -273,51 +273,47 @@ class UDClient:
         )
 
 
-    def get_product_version(self, product_id: int, version_id: int) -> Version:
+    def get_product_version(self, version_id: int) -> Version:
         """
         Retrieve a product version.
 
-        :param product_id: Product identifier.
         :param version_id: Version identifier.
         :returns: Version representation.
         """
 
         return self._GET(
-            f'/products/{product_id}/product_versions/{version_id}',
+            f'/product_versions/{version_id}',
             model=Version,
         )
 
 
     def update_product_version(
             self,
-            product_id: int,
             version_id: int,
             payload: VersionCreate) -> Version:
         """
         Update a product version.
 
-        :param product_id: Product identifier.
         :param version_id: Version identifier.
         :param payload: Updated version payload.
         :returns: Updated version.
         """
 
         return self._PUT(
-            f'/products/{product_id}/product_versions/{version_id}',
+            f'/product_versions/{version_id}',
             payload=payload,
             model=Version,
         )
 
 
-    def delete_product_version(self, product_id: int, version_id: int) -> None:
+    def delete_product_version(self, version_id: int) -> None:
         """
         Delete a product version.
 
-        :param product_id: Product identifier.
         :param version_id: Version identifier.
         """
 
-        self._DELETE(f'/products/{product_id}/product_versions/{version_id}')
+        self._DELETE(f'/product_versions/{version_id}')
 
 
     def page_repositories(
@@ -338,7 +334,7 @@ class UDClient:
         params = self._build_list_params(page=page, limit=limit, sort=sort)
 
         return self._GET(
-            f'/product_versions/{product_version_id}/repositories',
+            f'/product_versions/{product_version_id}/files',
             params=params,
             model=PaginatedRepositories,
         )
@@ -419,65 +415,53 @@ class UDClient:
         """
 
         return self._POST(
-            f'/product_versions/{product_version_id}/repositories',
+            f'/product_versions/{product_version_id}/files',
             payload=payload,
             model=Repository,
         )
 
 
-    def get_repository(
-            self,
-            product_version_id: int,
-            repository_id: int) -> Repository:
+    def get_repository(self, file_id: int) -> Repository:
         """
-        Retrieve a repository by identifier.
+        Retrieve a repository (file) by identifier.
 
-        :param product_version_id: Product version identifier.
-        :param repository_id: Repository identifier.
+        :param file_id: File identifier.
         :returns: Repository representation.
         """
 
         return self._GET(
-            f'/product_versions/{product_version_id}/repositories/{repository_id}',
+            f'/files/{file_id}',
             model=Repository,
         )
 
 
     def update_repository(
             self,
-            product_version_id: int,
-            repository_id: int,
+            file_id: int,
             payload: RepositoryCreate) -> Repository:
         """
-        Update a repository.
+        Update a repository (file).
 
-        :param product_version_id: Product version identifier.
-        :param repository_id: Repository identifier.
+        :param file_id: File identifier.
         :param payload: Updated repository payload.
         :returns: Updated repository.
         """
 
         return self._PUT(
-            f'/product_versions/{product_version_id}/repositories/{repository_id}',
+            f'/files/{file_id}',
             payload=payload,
             model=Repository,
         )
 
 
-    def delete_repository(
-            self,
-            product_version_id: int,
-            repository_id: int) -> None:
+    def delete_repository(self, file_id: int) -> None:
         """
-        Delete a repository.
+        Delete a repository (file).
 
-        :param product_version_id: Product version identifier.
-        :param repository_id: Repository identifier.
+        :param file_id: File identifier.
         """
 
-        self._DELETE(
-            f'/product_versions/{product_version_id}/repositories/{repository_id}',
-        )
+        self._DELETE(f'/files/{file_id}')
 
 
     @staticmethod

@@ -78,19 +78,17 @@ def list_versions(
 
 
 @version.command(name="get")
-@argument("product_id", type=int)
 @argument("version_id", type=int)
 @pass_state
 @catchall
 def get_version(
         state: CLIState,
-        product_id: int,
         version_id: int) -> None:
     """
     Retrieve a product version by identifier.
     """
 
-    version = state.client.get_product_version(product_id, version_id)
+    version = state.client.get_product_version(version_id)
     render_version(version, state.yaml_output)
 
 
@@ -119,7 +117,6 @@ def create_version(
 
 
 @version.command(name="update")
-@argument("product_id", type=int)
 @argument("version_id", type=int)
 @option(
     "--file",
@@ -132,7 +129,6 @@ def create_version(
 @catchall
 def update_version(
         state: CLIState,
-        product_id: int,
         version_id: int,
         payload_path: str) -> None:
     """
@@ -140,24 +136,22 @@ def update_version(
     """
 
     payload = load_yaml(payload_path, model=VersionCreate)
-    version = state.client.update_product_version(product_id, version_id, payload)
+    version = state.client.update_product_version(version_id, payload)
     render_version(version, state.yaml_output)
 
 
 @version.command(name="delete")
-@argument("product_id", type=int)
 @argument("version_id", type=int)
 @pass_state
 @catchall
 def delete_version(
         state: CLIState,
-        product_id: int,
         version_id: int) -> None:
     """
     Delete a product version.
     """
 
-    state.client.delete_product_version(product_id, version_id)
+    state.client.delete_product_version(version_id)
     echo("Success.")
 
 

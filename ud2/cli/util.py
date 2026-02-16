@@ -75,6 +75,7 @@ def catchall(function: Callable[..., Any]) -> Callable[..., Any]:
     def wrapper(state: CLIState, *args: Any, **kwargs: Any) -> Any:
 
         if state.debug:
+            # when debug mode is set, we let all exceptions propagate
             return function(state, *args, **kwargs)
 
         try:
@@ -163,9 +164,10 @@ def tabulate(
       headings if out is a TTY device.
 
     :param out: Stream to write output to. Default, `sys.stdout`
-
-    :since: 1.0
     """
+    # Adapted from koji-smoky-dingo, which is written by the same author and
+    # licensed under the GPLv3
+    # https://github.com/obriencj/koji-smoky-dingo
 
     if out is None:
         out = sys.stdout

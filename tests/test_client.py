@@ -12,7 +12,8 @@ from ud2.models import (PaginatedProducts, PaginatedRepositories, Product,
 
 from . import (DEFAULT_SHA256, dump_model, make_paginated_products,
                make_paginated_repositories, make_product, make_product_create,
-               make_repository, make_repository_create)
+               make_repository, make_repository_create, make_version,
+               make_version_create)
 
 
 class StubResponse:
@@ -213,6 +214,63 @@ class TestUDClient(unittest.TestCase):
             'https://downloads.example.test/api/products/10/product_versions',
         )
 
+    def test_get_product_version_uses_product_versions_path(self) -> None:
+        session = StubSession([
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data=dump_model(make_version(id=3, productId=10, version='9.0')),
+            ),
+        ])
+        client = UDClient(config=self.config, session=session)
+
+        result = client.get_product_version(version_id=3)
+
+        self.assertIsInstance(result, Version)
+        self.assertEqual(result.id, 3)
+        captured = session.requests[0]
+        self.assertEqual(captured['method'], 'GET')
+        self.assertEqual(
+            captured['url'],
+            'https://downloads.example.test/api/product_versions/3',
+        )
+
+    def test_update_product_version_uses_product_versions_path(self) -> None:
+        session = StubSession([
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data=dump_model(make_version(id=3, productId=10, version='9.1')),
+            ),
+        ])
+        client = UDClient(config=self.config, session=session)
+        payload = make_version_create(version='9.1')
+
+        result = client.update_product_version(version_id=3, payload=payload)
+
+        self.assertIsInstance(result, Version)
+        self.assertEqual(result.version, '9.1')
+        captured = session.requests[0]
+        self.assertEqual(captured['method'], 'PUT')
+        self.assertEqual(
+            captured['url'],
+            'https://downloads.example.test/api/product_versions/3',
+        )
+
+    def test_delete_product_version_uses_product_versions_path(self) -> None:
+        session = StubSession([
+            StubResponse(status_code=204, headers={}),
+        ])
+        client = UDClient(config=self.config, session=session)
+
+        result = client.delete_product_version(version_id=3)
+
+        self.assertIsNone(result)
+        captured = session.requests[0]
+        self.assertEqual(captured['method'], 'DELETE')
+        self.assertEqual(
+            captured['url'],
+            'https://downloads.example.test/api/product_versions/3',
+        )
+
     def test_create_repository_serializes_aliases(self) -> None:
         session = StubSession([
             StubResponse(
@@ -247,7 +305,7 @@ class TestUDClient(unittest.TestCase):
         self.assertEqual(captured['method'], 'POST')
         self.assertEqual(
             captured['url'],
-            'https://downloads.example.test/api/product_versions/3/repositories',
+            'https://downloads.example.test/api/product_versions/3/files',
         )
         self.assertEqual(
             captured['json'],
@@ -282,7 +340,7 @@ class TestUDClient(unittest.TestCase):
         captured = session.requests[0]
         self.assertEqual(
             captured['url'],
-            'https://downloads.example.test/api/product_versions/11/repositories',
+            'https://downloads.example.test/api/product_versions/11/files',
         )
         self.assertEqual(captured['params'], {'limit': 5})
 
@@ -330,23 +388,20 @@ class TestUDClient(unittest.TestCase):
         self.assertEqual(first_request['params'], {'page': 1})
         self.assertEqual(second_request['params'], {'page': 2, 'limit': 1})
 
-    def test_delete_repository_uses_nested_endpoint(self) -> None:
+    def test_delete_repository_uses_files_endpoint(self) -> None:
         session = StubSession([
             StubResponse(status_code=204, headers={}),
         ])
         client = UDClient(config=self.config, session=session)
 
-        result = client.delete_repository(
-            product_version_id=11,
-            repository_id=5,
-        )
+        result = client.delete_repository(file_id=5)
 
         self.assertIsNone(result)
         captured = session.requests[0]
         self.assertEqual(captured['method'], 'DELETE')
         self.assertEqual(
             captured['url'],
-            'https://downloads.example.test/api/product_versions/11/repositories/5',
+            'https://downloads.example.test/api/files/5',
         )
 
     def test_request_requires_absolute_path(self) -> None:
