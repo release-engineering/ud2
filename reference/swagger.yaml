@@ -1,7 +1,22 @@
 definitions:
-  controllers.ProductPaginatedResponse:
+  controllers.FilePaginatedResponse:
     properties:
       data: {}
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  controllers.ProductPaginatedResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/models.ProductResponse'
+        type: array
       limit:
         example: 10
         type: integer
@@ -15,17 +30,93 @@ definitions:
         example: 10
         type: integer
     type: object
-  controllers.RepositoryPaginatedResponse:
+  models.FileInput:
     properties:
-      data: {}
-      limit:
+      classifier:
+        items:
+          type: string
+        type: array
+      content_types:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      file_name:
+        type: string
+      file_size:
         type: integer
-      page:
+      installation:
+        type: string
+      issues:
+        items:
+          $ref: '#/definitions/models.FileIssue'
+        type: array
+      long_description:
+        type: string
+      md5:
+        type: string
+      sha256:
+        type: string
+      visibility:
+        example: visible
+        type: string
+    required:
+    - description
+    - file_name
+    - file_size
+    - sha256
+    type: object
+  models.FileIssue:
+    properties:
+      id:
+        example: TUSC-1234
+        type: string
+      type:
+        example: jira
+        type: string
+    type: object
+  models.FileResponse:
+    properties:
+      classifier:
+        items:
+          type: string
+        type: array
+      content_types:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      file_name:
+        type: string
+      file_size:
         type: integer
-      total:
+      id:
         type: integer
-      total_pages:
-        type: integer
+      installation:
+        type: string
+      issues:
+        items:
+          $ref: '#/definitions/models.FileIssue'
+        type: array
+      long_description:
+        type: string
+      md5:
+        type: string
+      product_name:
+        type: string
+      product_version:
+        type: string
+      publish_date:
+        type: string
+      sha256:
+        type: string
+      update_date:
+        type: string
+      visibility:
+        example: visible
+        type: string
     type: object
   models.ProductInput:
     properties:
@@ -92,6 +183,9 @@ definitions:
       platform:
         example: linux
         type: string
+      sort_version:
+        example: "1.0"
+        type: string
       version:
         example: "8.5"
         type: string
@@ -115,9 +209,12 @@ definitions:
       platform:
         example: linux
         type: string
-      productId:
+      product_id:
         example: 1
         type: integer
+      sort_version:
+        example: "1.0"
+        type: string
       version:
         example: "8.5"
         type: string
@@ -125,69 +222,199 @@ definitions:
         example: visible
         type: string
     type: object
-  models.RepositoryInput:
-    properties:
-      Installation:
-        type: string
-      contentTypes:
-        items:
-          type: string
-        type: array
-      description:
-        type: string
-      fileName:
-        type: string
-      fileSize:
-        type: integer
-      longDescription:
-        type: string
-      sha256:
-        type: string
-    required:
-    - description
-    - fileName
-    - fileSize
-    - sha256
-    type: object
-  models.RepositoryResponse:
-    properties:
-      contentTypes:
-        items:
-          type: string
-        type: array
-      description:
-        type: string
-      fileName:
-        type: string
-      fileSize:
-        type: integer
-      id:
-        type: integer
-      installation:
-        type: string
-      longDescription:
-        type: string
-      productName:
-        type: string
-      productVersion:
-        type: string
-      publishDate:
-        type: string
-      sha256:
-        type: string
-      updateDate:
-        type: string
-    type: object
 info:
   contact: {}
   description: 'Requires client certificate. Use curl: --cert $MYCERT --key $MYKEY'
   title: Unified Downloads API
 paths:
-  /product_versions/{product_version_id}/repositories:
+  /files/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Soft delete a file by ID
+      parameters:
+      - description: File ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Successfully deleted file
+        "400":
+          description: Invalid file ID
+        "404":
+          description: File not found
+        "500":
+          description: Internal server error
+      security:
+      - CertAuth: []
+      summary: Delete a file
+      tags:
+      - files
     get:
       consumes:
       - application/json
-      description: Get a paginated list of repositories for a specific product version
+      description: Retrieve a specific file by its ID
+      parameters:
+      - description: File ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved file
+          schema:
+            $ref: '#/definitions/models.FileResponse'
+        "400":
+          description: Invalid file ID
+        "404":
+          description: File not found
+        "500":
+          description: Internal server error
+      security:
+      - CertAuth: []
+      summary: Get a file by ID
+      tags:
+      - files
+    put:
+      consumes:
+      - application/json
+      description: Update an existing file with new details
+      parameters:
+      - description: File ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated file data
+        in: body
+        name: file
+        required: true
+        schema:
+          $ref: '#/definitions/models.FileInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully updated file
+          schema:
+            $ref: '#/definitions/models.FileResponse'
+        "400":
+          description: Invalid input data or file ID
+        "404":
+          description: File not found
+        "500":
+          description: Internal server error
+      security:
+      - CertAuth: []
+      summary: Update a file
+      tags:
+      - files
+  /product_versions/{product_version_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Soft delete a product version by ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Product Version ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Successfully deleted product version
+        "400":
+          description: Invalid product ID or version ID
+        "404":
+          description: Product or product version not found
+        "500":
+          description: Internal server error
+      security:
+      - CertAuth: []
+      summary: Delete a product version
+      tags:
+      - product-versions
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific product version by its ID
+      parameters:
+      - description: Product Version ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved product version
+          schema:
+            $ref: '#/definitions/models.ProductVersionResponse'
+        "400":
+          description: Invalid product ID or version ID
+        "404":
+          description: Product or product version not found
+        "500":
+          description: Internal server error
+      security:
+      - CertAuth: []
+      summary: Get a product version by ID
+      tags:
+      - product-versions
+    put:
+      consumes:
+      - application/json
+      description: Update an existing product version with new details
+      parameters:
+      - description: Product Version ID
+        in: path
+        name: version_id
+        required: true
+        type: integer
+      - description: Updated product version data
+        in: body
+        name: productVersion
+        required: true
+        schema:
+          $ref: '#/definitions/models.ProductVersionInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully updated product version
+          schema:
+            $ref: '#/definitions/models.ProductVersionResponse'
+        "400":
+          description: Invalid input data, or product version ID
+        "404":
+          description: product version not found
+        "500":
+          description: Internal server error
+      security:
+      - CertAuth: []
+      summary: Update a product version
+      tags:
+      - product-versions
+  /product_versions/{product_version_id}/files:
+    get:
+      consumes:
+      - application/json
+      description: Get a paginated list of files for a specific product version
       parameters:
       - description: Product Version ID
         in: path
@@ -210,9 +437,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: Successfully retrieved repositories
+          description: Successfully retrieved files
           schema:
-            $ref: '#/definitions/controllers.RepositoryPaginatedResponse'
+            $ref: '#/definitions/controllers.FilePaginatedResponse'
         "400":
           description: Invalid query parameters or product version ID
         "404":
@@ -221,32 +448,32 @@ paths:
           description: Internal server error
       security:
       - CertAuth: []
-      summary: List repositories
+      summary: List files
       tags:
-      - repositories
+      - files
     post:
       consumes:
       - application/json
-      description: Create a new repository for a specific product version
+      description: Create a new file for a specific product version
       parameters:
       - description: Product Version ID
         in: path
         name: product_version_id
         required: true
         type: integer
-      - description: Repository data
+      - description: File data
         in: body
-        name: repository
+        name: file
         required: true
         schema:
-          $ref: '#/definitions/models.RepositoryInput'
+          $ref: '#/definitions/models.FileInput'
       produces:
       - application/json
       responses:
         "201":
-          description: Successfully created repository
+          description: Successfully created file
           schema:
-            $ref: '#/definitions/models.RepositoryResponse'
+            $ref: '#/definitions/models.FileResponse'
         "400":
           description: Invalid input data or product version ID
         "404":
@@ -255,113 +482,9 @@ paths:
           description: Internal server error
       security:
       - CertAuth: []
-      summary: Create a repository
+      summary: Create a file
       tags:
-      - repositories
-  /product_versions/{product_version_id}/repositories/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Soft delete a repository by ID
-      parameters:
-      - description: Product Version ID
-        in: path
-        name: product_version_id
-        required: true
-        type: integer
-      - description: Repository ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: Successfully deleted repository
-        "400":
-          description: Invalid product version ID or repository ID
-        "404":
-          description: Product version or repository not found
-        "500":
-          description: Internal server error
-      security:
-      - CertAuth: []
-      summary: Delete a repository
-      tags:
-      - repositories
-    get:
-      consumes:
-      - application/json
-      description: Retrieve a specific repository by its ID
-      parameters:
-      - description: Product Version ID
-        in: path
-        name: product_version_id
-        required: true
-        type: integer
-      - description: Repository ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Successfully retrieved repository
-          schema:
-            $ref: '#/definitions/models.RepositoryResponse'
-        "400":
-          description: Invalid product version ID or repository ID
-        "404":
-          description: Product version or repository not found
-        "500":
-          description: Internal server error
-      security:
-      - CertAuth: []
-      summary: Get a repository by ID
-      tags:
-      - repositories
-    put:
-      consumes:
-      - application/json
-      description: Update an existing repository with new details
-      parameters:
-      - description: Product Version ID
-        in: path
-        name: product_version_id
-        required: true
-        type: integer
-      - description: Repository ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Updated repository data
-        in: body
-        name: repository
-        required: true
-        schema:
-          $ref: '#/definitions/models.RepositoryInput'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Successfully updated repository
-          schema:
-            $ref: '#/definitions/models.RepositoryResponse'
-        "400":
-          description: Invalid input data, product version ID, or repository ID
-        "404":
-          description: Product version or repository not found
-        "500":
-          description: Internal server error
-      security:
-      - CertAuth: []
-      summary: Update a repository
-      tags:
-      - repositories
+      - files
   /products:
     get:
       consumes:
@@ -579,110 +702,46 @@ paths:
       summary: Create a product version
       tags:
       - product-versions
-  /products/{id}/product_versions/{version_id}:
-    delete:
-      consumes:
-      - application/json
-      description: Soft delete a product version by ID
-      parameters:
-      - description: Product ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Product Version ID
-        in: path
-        name: version_id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: Successfully deleted product version
-        "400":
-          description: Invalid product ID or version ID
-        "404":
-          description: Product or product version not found
-        "500":
-          description: Internal server error
-      security:
-      - CertAuth: []
-      summary: Delete a product version
-      tags:
-      - product-versions
+  /products/search:
     get:
       consumes:
       - application/json
-      description: Retrieve a specific product version by its ID
+      description: Search products by name and/or engineering ID with pagination.
+        At least one search parameter must be provided and non-empty. Engineering
+        ID must be greater than 0.
       parameters:
-      - description: Product ID
-        in: path
-        name: id
-        required: true
+      - description: Product name (partial, case-insensitive)
+        in: query
+        name: name
+        type: string
+      - description: Engineering ID (exact match, must be > 0)
+        in: query
+        name: eng_id
         type: integer
-      - description: Product Version ID
-        in: path
-        name: version_id
-        required: true
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 10, max: 100)'
+        in: query
+        name: limit
         type: integer
       produces:
       - application/json
       responses:
         "200":
-          description: Successfully retrieved product version
+          description: Successfully retrieved products
           schema:
-            $ref: '#/definitions/models.ProductVersionResponse'
+            $ref: '#/definitions/controllers.ProductPaginatedResponse'
         "400":
-          description: Invalid product ID or version ID
-        "404":
-          description: Product or product version not found
+          description: Invalid query parameters or no search parameters provided
         "500":
           description: Internal server error
       security:
       - CertAuth: []
-      summary: Get a product version by ID
+      summary: Search products
       tags:
-      - product-versions
-    put:
-      consumes:
-      - application/json
-      description: Update an existing product version with new details
-      parameters:
-      - description: Product ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Product Version ID
-        in: path
-        name: version_id
-        required: true
-        type: integer
-      - description: Updated product version data
-        in: body
-        name: productVersion
-        required: true
-        schema:
-          $ref: '#/definitions/models.ProductVersionInput'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Successfully updated product version
-          schema:
-            $ref: '#/definitions/models.ProductVersionResponse'
-        "400":
-          description: Invalid input data, product ID, or version ID
-        "404":
-          description: Product or product version not found
-        "500":
-          description: Internal server error
-      security:
-      - CertAuth: []
-      summary: Update a product version
-      tags:
-      - product-versions
+      - products
 securityDefinitions:
   CertAuth:
     type: basic
