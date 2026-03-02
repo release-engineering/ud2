@@ -8,7 +8,6 @@ from typing import Any, Optional, Type, TypeVar, Union
 
 __all__ = (
     'Architecture',
-    'Platform',
     'Visibility',
     'EnumValue',
     'coerce_enum',
@@ -35,16 +34,6 @@ class Architecture(str, Enum):
     AARCH64 = 'aarch64'
     PPC64LE = 'ppc64le'
     S390X = 's390x'
-
-
-class Platform(str, Enum):
-    """
-    Target platform identifiers referenced by UD resources.
-    """
-
-    LINUX = 'linux'
-    WINDOWS = 'windows'
-    MACOS = 'macos'
 
 
 EnumValue = TypeVar('EnumValue', bound=Enum)

@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Any, Dict, Iterable, Optional
 
 from ud2.models.compat import BaseModel
-from ud2.models.enums import Architecture, Platform, Visibility
+from ud2.models.enums import Architecture, Visibility
 from ud2.models.pagination import PaginatedProducts, PaginatedRepositories
 from ud2.models.product import Product, ProductCreate
 from ud2.models.repository import Repository, RepositoryCreate
@@ -92,7 +92,7 @@ def make_version_create(**overrides: Any) -> VersionCreate:
         'version': '1.0',
         'architecture': Architecture.X86_64,
         'cpe': 'cpe:/o:test',
-        'platform': Platform.LINUX,
+        'platform': 'linux',
         'visibility': Visibility.VISIBLE,
     }
     payload.update(overrides)
@@ -121,6 +121,10 @@ def make_repository_create(**overrides: Any) -> RepositoryCreate:
         'file_name': 'installer.iso',
         'file_size': 4096,
         'sha256': DEFAULT_SHA256,
+        'md5': 'a' * 32,
+        'issues': [],
+        'visibility': 'visible',
+        'classifier': [],
         'content_types': ['binary'],
         'installation': 'Run installer',
         'long_description': 'Detailed installation steps.',

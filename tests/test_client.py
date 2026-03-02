@@ -187,6 +187,53 @@ class TestUDClient(unittest.TestCase):
             payload.model_dump(by_alias=True, exclude_none=True),
         )
 
+    def test_get_product_with_wrapped_response_returns_model(self) -> None:
+        session = StubSession([
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data={
+                    'data': dump_model(
+                        make_product(
+                            id=4852,
+                            eng_id=101,
+                            name='RHEL',
+                        ),
+                    ),
+                },
+            ),
+        ])
+        client = UDClient(config=self.config, session=session)
+
+        result = client.get_product(product_id=4852)
+
+        self.assertIsInstance(result, Product)
+        self.assertEqual(result.id, 4852)
+        self.assertEqual(result.eng_id, 101)
+        self.assertEqual(result.name, 'RHEL')
+        captured = session.requests[0]
+        self.assertEqual(captured['method'], 'GET')
+        self.assertEqual(
+            captured['url'],
+            'https://downloads.example.test/api/products/4852',
+        )
+
+    def test_get_product_with_unwrapped_response_still_validates(self) -> None:
+        session = StubSession([
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data=dump_model(
+                    make_product(id=1, eng_id=2, name='Unwrapped'),
+                ),
+            ),
+        ])
+        client = UDClient(config=self.config, session=session)
+
+        result = client.get_product(product_id=1)
+
+        self.assertIsInstance(result, Product)
+        self.assertEqual(result.id, 1)
+        self.assertEqual(result.name, 'Unwrapped')
+
     def test_list_product_versions_returns_versions(self) -> None:
         session = StubSession([
             StubResponse(

@@ -29,9 +29,9 @@ def render_versions(versions: Sequence[Version], yaml: bool) -> None:
         (
             version.id,
             version.version,
-            version.architecture.value if version.architecture else "",
-            version.platform.value if version.platform else "",
-            version.visibility.value if version.visibility else "",
+            version.architecture,
+            version.platform,
+            version.visibility,
         )
         for version in versions
     ]
@@ -50,9 +50,9 @@ def render_version(version: Version, yaml: bool) -> None:
     echo(f"Version: {version.version} [ID: {version.id}]")
     echo(f"  Product ID: {version.product_id}")
     echo(f"  CPE: {version.cpe}")
-    echo(f"  Architecture: {version.architecture.value if version.architecture else ''}")
-    echo(f"  Platform: {version.platform.value if version.platform else ''}")
-    echo(f"  Visibility: {version.visibility.value if version.visibility else ''}")
+    echo(f"  Architecture: {version.architecture}")
+    echo(f"  Platform: {version.platform}")
+    echo(f"  Visibility: {version.visibility}")
 
 
 @group(name="version", help="Product version operations.")

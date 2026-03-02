@@ -2,7 +2,7 @@
 Aggregate exports for UDv2 Pydantic models.
 """
 
-from .enums import Architecture, Platform, Visibility
+from .enums import Architecture, Visibility
 from .pagination import PaginatedProducts, PaginatedRepositories, Pagination, ResponseVersions
 from .product import Product, ProductCreate
 from .repository import Repository, RepositoryCreate
@@ -21,7 +21,6 @@ __all__ = (
     "PaginatedProducts",
     "PaginatedRepositories",
     "Architecture",
-    "Platform",
     "Visibility",
 )
 

@@ -60,6 +60,7 @@ class UDClient:
         """
 
         self._config = config
+
         logger.debug(f"config.name: {config.name}")
         logger.debug(f"config.base_url: {config.base_url}")
         logger.debug(f"config.client_cert: {config.client_cert}")
@@ -213,7 +214,11 @@ class UDClient:
         :returns: Product representation.
         """
 
-        return self._GET(f'/products/{product_id}', model=Product)
+        return self._GET(
+            f'/products/{product_id}',
+            model=Product,
+            unwrap_data=True,
+        )
 
 
     def update_product(self, product_id: int, payload: ProductCreate) -> Product:
@@ -284,6 +289,7 @@ class UDClient:
         return self._GET(
             f'/product_versions/{version_id}',
             model=Version,
+            unwrap_data=True,
         )
 
 
@@ -432,6 +438,7 @@ class UDClient:
         return self._GET(
             f'/files/{file_id}',
             model=Repository,
+            unwrap_data=True,
         )
 
 
@@ -493,9 +500,15 @@ class UDClient:
             path: str,
             payload: Optional[Any] = None,
             model: Optional[Any] = None,
-            params: Optional[Dict[str, Any]] = None) -> Any:
+            params: Optional[Dict[str, Any]] = None,
+            unwrap_data: bool = False) -> Any:
         """
         Generic REST request wrapper.
+
+        When ``unwrap_data`` is True and the JSON body is a dict with a
+        ``data`` key, the value of ``data`` is used for model validation
+        instead of the full body. This compensates for APIs that wrap the
+        payload in a ``data`` attribute when the spec does not.
         """
 
         if not path.startswith('/'):
@@ -522,6 +535,8 @@ class UDClient:
 
         if content_type.startswith('application/json'):
             data = response.json()
+            if unwrap_data and isinstance(data, dict) and 'data' in data:
+                data = data['data']
             if model:
                 return coerce_model(data, model)
             return data

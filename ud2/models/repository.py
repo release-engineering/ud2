@@ -29,6 +29,10 @@ class RepositoryBase(StrictModel):
     file_name: str = Field(alias='fileName')
     file_size: int = Field(alias='fileSize')
     sha256: str
+    md5: str
+    issues: List[str]
+    visibility: str
+    classifier: List[str]
 
     content_types: List[str] = Field(alias='contentTypes', default_factory=list)
     installation: Optional[str] = Field(alias='installation', default=None)
