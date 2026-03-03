@@ -1,0 +1,19 @@
+product:
+  engId: 4001
+  name: "Project Atlas"
+
+version:
+  version: "1.0"
+  architecture: x86_64
+  platform: linux
+  visibility: public
+
+repositories:
+  - description: "Atlas 1.0 GA ISO"
+    fileName: atlas-1.0-ga.iso
+    fileSize: 734003200
+    sha256: "1f2d3c4b5a69788766554433221100ffeeddccbbaa99887766554433221100ff"
+    md5: "abc123def456"
+    issues: []
+    visibility: visible
+    classifier: []

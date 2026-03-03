@@ -1,4 +1,4 @@
-ud2.models.enums
+﻿ud2.models.enums
 ================
 
 .. automodule:: ud2.models.enums
@@ -15,6 +15,5 @@ ud2.models.enums
    .. autosummary::
    
       Architecture
-      Platform
       Visibility
    

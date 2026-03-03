@@ -191,6 +191,65 @@ The CLI confirms success and prints the updated repository. If you only need to
 verify the change, re-run ``ud2 repositories get`` after the update.
 
 
+Scenario 7: Check and Push a Release Manifest
+=============================================
+
+Use the release workflow to idempotently sync a collection of repository files
+with a version on an existing product. A release manifest bundles product
+reference, version, and repository entries in a single YAML file.
+
+1. Create a release manifest, for example ``release.yaml``:
+
+   .. code-block:: yaml
+
+      product:
+        engId: 4001
+        name: "Project Atlas"
+
+      version:
+        version: "1.0"
+        architecture: x86_64
+        platform: linux
+        visibility: public
+
+      repositories:
+        - description: "Atlas 1.0 GA ISO"
+          fileName: atlas-1.0-ga.iso
+          fileSize: 734003200
+          sha256: "1f2d3c4b5a69788766554433221100ffeeddccbbaa99887766554433221100ff"
+          md5: "abc123def456"
+          issues: []
+          visibility: visible
+          classifier: []
+
+2. Check the manifest against the server without making changes:
+
+   .. code-block:: bash
+
+      ud2 release check release.yaml
+
+   This reports whether the product and version exist, and for each repository
+   whether it would be created or updated. It also surfaces errors such as
+   filename/sha256 mismatches (when the same title and filename would point to
+   different content).
+
+3. Push the release to apply changes:
+
+   .. code-block:: bash
+
+      ud2 release push release.yaml
+
+   This creates the version if missing, creates or updates repositories as
+   needed, and writes back IDs (``_sync``) into the manifest for faster
+   subsequent syncs. Use ``--force-filename`` to override the filename/sha256
+   safety check when intentionally replacing content under the same filename.
+   Use ``--upload`` to invoke file upload utilities (when implemented) before
+   pushing metadata.
+
+   See `design/RELEASE.md` in the source tree for the full release schema and
+   matching heuristics.
+
+
 Next Steps
 ==========
 

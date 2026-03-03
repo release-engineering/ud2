@@ -1,4 +1,4 @@
-﻿ud2
+ud2
 ===
 
 .. automodule:: ud2
@@ -15,3 +15,4 @@
    config
    loader
    models
+   release

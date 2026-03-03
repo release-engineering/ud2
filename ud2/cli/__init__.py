@@ -15,6 +15,7 @@ from .util import build_cli_state
 from ..config import ConfigurationError
 
 from .product import product
+from .release import release
 from .repository import repository
 from .version import version
 
@@ -65,6 +66,7 @@ def main(
 
 
 main.add_command(product)
+main.add_command(release)
 main.add_command(repository)
 main.add_command(version)
 

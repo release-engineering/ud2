@@ -11,6 +11,7 @@ ud2.cli
    :recursive:
 
    product
+   release
    repository
    util
    version

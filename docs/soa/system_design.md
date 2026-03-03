@@ -15,10 +15,11 @@
 
 ## Component Responsibilities
 
-- `ud2.cli.*`: Click commands handling argument parsing, profile selection, and user feedback.
+- `ud2.cli.*`: Click commands handling argument parsing, profile selection, and user feedback. Includes `release check` and `release push` for release manifest workflows.
 - `ud2.config.UDConfig`: Parses INI profiles, resolves certificates, CA bundle, base URL, timeout, and verification flags.
 - `ud2.client.UDClient`: Wraps `requests.Session`, binds configuration, exposes CRUD helpers, pagination iterators, and logging.
-- `ud2.models.*`: Pydantic definitions for products, versions, repositories, pagination envelopes, and response collections.
+- `ud2.models.*`: Pydantic definitions for products, versions, repositories, release manifests, pagination envelopes, and response collections.
+- `ud2.release`: Release push/sync logic (resolve, ensure, check, apply) for idempotently syncing release manifests.
 - External API: Validates auth, enforces RBAC, persists metadata and binary artifacts, returns JSON conforming to shared schema.
 
 ## Data Contracts

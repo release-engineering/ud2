@@ -14,5 +14,6 @@ ud2.models
    enums
    pagination
    product
+   release
    repository
    version

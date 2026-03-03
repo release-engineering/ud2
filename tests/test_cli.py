@@ -29,5 +29,13 @@ class TestCliRegistration(unittest.TestCase):
         for expected in ("list", "get", "create", "update", "delete"):
             self.assertIn(expected, subcommands)
 
+    def test_release_group_registered(self) -> None:
+        commands = cli_main.list_commands(None)
+        self.assertIn("release", commands)
+        release_cmd = cli_main.get_command(None, "release")
+        subcommands = release_cmd.list_commands(None)
+        for expected in ("check", "push"):
+            self.assertIn(expected, subcommands)
+
 
 # The end.

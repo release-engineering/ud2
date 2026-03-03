@@ -34,6 +34,7 @@ with `--config` and select profiles with `--env`.
 - Create a product: `ud2 products create --file product.yaml`
 - Add a version: `ud2 versions create <product-id> --file version.yaml`
 - Attach release files: `ud2 repositories create <version-id> --file repo.yaml`
+- Check or push a full release: `ud2 release check release.yaml`, `ud2 release push release.yaml`
 
 See `docs/cli_quickstart.rst` for detailed, copy/paste friendly walkthroughs and
 `docs/configuration_reference.rst` for configuration file guidance.
