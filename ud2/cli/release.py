@@ -22,6 +22,21 @@ from ..release import (
 from .util import CLIState, catchall, merge_payload, pass_state
 
 
+def resolve_release_path(path: Path) -> Path:
+    """
+    Resolve release manifest path. If path is a directory, use dir/ud-release.yml.
+    """
+
+    if path.is_dir():
+        candidate = path / 'ud-release.yml'
+        if not candidate.is_file():
+            raise ClickException(
+                f"Directory {path} does not contain ud-release.yml",
+            )
+        return candidate
+    return path
+
+
 def _split_comma(s: Optional[str]) -> List[str]:
     """Split comma-separated string into list, stripping whitespace."""
 
@@ -180,7 +195,8 @@ def init(
 
 
 @release.command(name="add")
-@argument("releasefile", type=click.Path(exists=True, path_type=Path))
+@argument("releasefile", type=click.Path(
+    exists=True, path_type=Path, file_okay=True, dir_okay=True))
 @option("--file", "artifact_path", type=ClickPath(exists=True, path_type=Path),
         help="Path to artifact (sets file_name, file_size, sha256, md5).")
 @option("--desc", "description", type=str, help="Short description (title).")
@@ -222,6 +238,7 @@ def add(
         no_path: bool) -> None:
     """Add a repository entry to the release manifest."""
 
+    manifest_path = resolve_release_path(Path(releasefile))
     if long_desc_file is not None:
         long_description = long_desc_file.read_text(encoding='utf-8')
 
@@ -268,9 +285,9 @@ def add(
         }
 
     entry = RepositoryEntry.model_validate(data)
-    release_obj = load_release_manifest(Path(releasefile))
+    release_obj = load_release_manifest(manifest_path)
     release_obj.repositories.append(entry)
-    write_release_manifest(Path(releasefile), release_obj)
+    write_release_manifest(manifest_path, release_obj)
     echo(f"Added {entry.description}")
 
 
@@ -299,7 +316,8 @@ def _find_entry(
 
 
 @release.command(name="edit")
-@argument("releasefile", type=click.Path(exists=True, path_type=Path))
+@argument("releasefile", type=click.Path(
+    exists=True, path_type=Path, file_okay=True, dir_okay=True))
 @option("--file-name", "file_name", type=str, help="Find entry by file name.")
 @option("--by-index", "by_index", type=int, help="Find entry by index.")
 @option("--file", "artifact_path", type=ClickPath(exists=True, path_type=Path),
@@ -348,13 +366,14 @@ def edit(
         dry_run: bool) -> None:
     """Edit an existing repository entry in the release manifest."""
 
+    manifest_path = resolve_release_path(Path(releasefile))
     if long_desc_file is not None:
         long_description = long_desc_file.read_text(encoding='utf-8')
 
     if clear_path and path_val is not None:
         raise ClickException("Specify --path or --clear-path, not both.")
 
-    release_obj = load_release_manifest(Path(releasefile))
+    release_obj = load_release_manifest(manifest_path)
     idx = _find_entry(release_obj, file_name, by_index)
     entry = release_obj.repositories[idx]
 
@@ -396,12 +415,13 @@ def edit(
         return
 
     release_obj.repositories[idx] = updated
-    write_release_manifest(Path(releasefile), release_obj)
+    write_release_manifest(manifest_path, release_obj)
     echo(f"Updated {updated.description}")
 
 
 @release.command(name="remove")
-@argument("releasefile", type=click.Path(exists=True, path_type=Path))
+@argument("releasefile", type=click.Path(
+    exists=True, path_type=Path, file_okay=True, dir_okay=True))
 @option("--file-name", "file_name", type=str, help="Find entry by file name.")
 @option("--by-index", "by_index", type=int, help="Find entry by index.")
 @option("--dry-run", is_flag=True, help="Show what would be removed.")
@@ -415,7 +435,8 @@ def remove(
         dry_run: bool) -> None:
     """Remove a repository entry from the release manifest."""
 
-    release_obj = load_release_manifest(Path(releasefile))
+    manifest_path = resolve_release_path(Path(releasefile))
+    release_obj = load_release_manifest(manifest_path)
     idx = _find_entry(release_obj, file_name, by_index)
     entry = release_obj.repositories[idx]
 
@@ -424,17 +445,19 @@ def remove(
         return
 
     release_obj.repositories.pop(idx)
-    write_release_manifest(Path(releasefile), release_obj)
+    write_release_manifest(manifest_path, release_obj)
     echo(f"Removed {entry.description}")
 
 
 @release.command(name="check")
-@argument("releasefile", type=click.Path(exists=True, path_type=Path))
+@argument("releasefile", type=click.Path(
+    exists=True, path_type=Path, file_okay=True, dir_okay=True))
 @pass_state
 @catchall
 def check(state: CLIState, releasefile: Path) -> None:
     """Check release manifest against server state (no writes)."""
-    release_obj = load_yaml(str(releasefile), model=Release)
+    manifest_path = resolve_release_path(Path(releasefile))
+    release_obj = load_yaml(str(manifest_path), model=Release)
     report = check_release(state.client, release_obj)
     render_check_report(report, state.yaml_output)
     if report['errors']:
@@ -445,7 +468,8 @@ def check(state: CLIState, releasefile: Path) -> None:
 
 
 @release.command(name="push")
-@argument("releasefile", type=click.Path(exists=True, path_type=Path))
+@argument("releasefile", type=click.Path(
+    exists=True, path_type=Path, file_okay=True, dir_okay=True))
 @option("--force-filename", is_flag=True,
         help="Allow same filename when content (sha256) differs.")
 @option("--upload", is_flag=True,
@@ -458,12 +482,13 @@ def push(
         force_filename: bool,
         upload: bool) -> None:
     """Push release to the server."""
+    manifest_path = resolve_release_path(Path(releasefile))
     try:
-        release_obj = load_yaml(str(releasefile), model=Release)
+        release_obj = load_yaml(str(manifest_path), model=Release)
         result = apply_release(
             state.client, release_obj,
             force_filename=force_filename, upload=upload,
-            manifest_path=str(releasefile),
+            manifest_path=str(manifest_path),
         )
     except ReleaseError as exc:
         raise ClickException(str(exc)) from exc

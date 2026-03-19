@@ -9,6 +9,7 @@ from unittest import mock
 from click.testing import CliRunner
 
 from ud2.cli import main as cli_main
+from ud2.cli.release import resolve_release_path
 from ud2.cli.util import CLIState
 from ud2.client import UDClient
 from ud2.config import UDConfig
@@ -344,6 +345,108 @@ class TestReleasePushCli(unittest.TestCase):
 
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn('not yet implemented', result.output)
+
+
+class TestResolveReleasePath(unittest.TestCase):
+    """Unit tests for resolve_release_path helper."""
+
+    def test_file_path_unchanged(self):
+        """File path is returned as-is."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            Path('release.yaml').write_text('product: {}\nversion: {}\n')
+            resolved = resolve_release_path(Path('release.yaml'))
+            self.assertEqual(resolved, Path('release.yaml'))
+
+    def test_directory_resolves_to_ud_release_yml(self):
+        """Directory resolves to dir/ud-release.yml when present."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            Path('myproduct').mkdir()
+            (Path('myproduct') / 'ud-release.yml').write_text(
+                'product: {}\nversion: {}\nrepositories: []\n',
+            )
+            resolved = resolve_release_path(Path('myproduct'))
+            self.assertEqual(
+                resolved,
+                Path('myproduct') / 'ud-release.yml',
+            )
+
+    def test_directory_without_ud_release_yml_raises(self):
+        """Directory without ud-release.yml raises ClickException."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            Path('emptydir').mkdir()
+            with self.assertRaises(Exception) as ctx:
+                resolve_release_path(Path('emptydir'))
+            self.assertIn('ud-release.yml', str(ctx.exception))
+
+
+class TestReleaseDirectoryLookup(unittest.TestCase):
+    """CLI tests for directory-based release manifest lookup."""
+
+    @mock.patch('ud2.cli.release.check_release')
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_check_with_directory_succeeds(self, build_state, check_release):
+        """Check accepts directory path, resolves to dir/ud-release.yml."""
+        build_state.return_value = _make_state()
+        check_release.return_value = {
+            'product': {'status': 'found', 'product': mock.Mock()},
+            'version': {'status': 'found', 'version': mock.Mock()},
+            'repos': [],
+            'errors': [],
+            'in_sync': True,
+        }
+
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            mydir = Path('mydir').resolve()
+            mydir.mkdir()
+            (mydir / 'ud-release.yml').write_text(
+                'product:\n  id: 1\nversion:\n  version: "1.0"\nrepositories: []\n',
+            )
+            result = runner.invoke(
+                cli_main,
+                ['release', 'check', str(mydir)],
+            )
+            self.assertEqual(result.exit_code, 0)
+            check_release.assert_called_once()
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_check_directory_without_ud_release_yml_fails(self, build_state):
+        """Check with directory lacking ud-release.yml fails."""
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            Path('nodir').mkdir()
+            result = runner.invoke(
+                cli_main,
+                ['release', 'check', 'nodir'],
+            )
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn('ud-release.yml', result.output)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_add_with_directory_path(self, build_state):
+        """Add accepts directory path, resolves to dir/ud-release.yml."""
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            projdir = Path('projdir').resolve()
+            projdir.mkdir()
+            (projdir / 'ud-release.yml').write_text(
+                'product:\n  id: 1\nversion:\n  version: "1.0"\nrepositories: []\n',
+            )
+            Path('artifact.bin').write_bytes(b'hello')
+            result = runner.invoke(
+                cli_main,
+                ['release', 'add', str(projdir), '--file', 'artifact.bin',
+                 '--desc', 'Test artifact'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = (projdir / 'ud-release.yml').read_text()
+            self.assertIn('description: Test artifact', content)
+            self.assertIn('fileName: artifact.bin', content)
 
 
 # The end.
