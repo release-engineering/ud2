@@ -30,6 +30,25 @@ definitions:
         example: 10
         type: integer
     type: object
+  controllers.ProductVersionPaginatedResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/models.ProductVersionResponse'
+        type: array
+      limit:
+        example: 10
+        type: integer
+      page:
+        example: 1
+        type: integer
+      total:
+        example: 100
+        type: integer
+      total_pages:
+        example: 10
+        type: integer
+    type: object
   models.FileInput:
     properties:
       classifier:
@@ -316,6 +335,65 @@ paths:
       summary: Update a file
       tags:
       - files
+  /files/search:
+    get:
+      consumes:
+      - application/json
+      description: Search files by various metadata with pagination. At least one
+        search parameter must be provided.
+      parameters:
+      - description: Product ID (exact match)
+        in: query
+        name: product_id
+        type: integer
+      - description: Product Version ID (exact match)
+        in: query
+        name: version_id
+        type: integer
+      - description: Description (glob pattern, case-insensitive)
+        in: query
+        name: description
+        type: string
+      - description: File name (glob pattern, case-insensitive)
+        in: query
+        name: file_name
+        type: string
+      - description: Jira issue ID (e.g. TUSC-1234)
+        in: query
+        name: jira
+        type: string
+      - description: Content type (array inclusion check)
+        in: query
+        name: content_type
+        type: string
+      - description: JBoss ID (exact match)
+        in: query
+        name: jboss_id
+        type: integer
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 10, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved files
+          schema:
+            $ref: '#/definitions/controllers.FilePaginatedResponse'
+        "400":
+          description: Invalid query parameters or no search parameters provided
+        "500":
+          description: Internal server error
+      security:
+      - CertAuth: []
+      summary: Search files
+      tags:
+      - files
   /product_versions/{product_version_id}:
     delete:
       consumes:
@@ -485,6 +563,50 @@ paths:
       summary: Create a file
       tags:
       - files
+  /product_versions/search:
+    get:
+      consumes:
+      - application/json
+      description: Search product versions by version, CPE, and/or product ID with
+        pagination. At least one search parameter must be provided and non-empty.
+        Product ID must be greater than 0.
+      parameters:
+      - description: Product version (glob pattern, case-insensitive)
+        in: query
+        name: version
+        type: string
+      - description: Product ID (exact match, must be > 0)
+        in: query
+        name: product_id
+        type: integer
+      - description: CPE string (glob pattern, case-insensitive)
+        in: query
+        name: cpe
+        type: string
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 10, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved product versions
+          schema:
+            $ref: '#/definitions/controllers.ProductVersionPaginatedResponse'
+        "400":
+          description: Invalid query parameters or no search parameters provided
+        "500":
+          description: Internal server error
+      security:
+      - CertAuth: []
+      summary: Search product versions
+      tags:
+      - product-versions
   /products:
     get:
       consumes:
