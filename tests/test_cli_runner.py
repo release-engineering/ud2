@@ -99,6 +99,11 @@ class TestCliRunnerSmoke(unittest.TestCase):
             visibility="visible",
             classifier=[],
         )
+        client.get_product_version.return_value = Version(
+            id=1,
+            productId=5,
+            version="1.0",
+        )
 
         build_state.return_value = CLIState(
             config=mock.Mock(spec=UDConfig),
@@ -135,6 +140,8 @@ class TestCliRunnerSmoke(unittest.TestCase):
                 payload.sha256,
                 "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
             )
+            self.assertIn("Product ID: 5", result.output)
+            self.assertIn("Version ID: 1", result.output)
         finally:
             path.unlink(missing_ok=True)
 

@@ -40,7 +40,12 @@ def render_repositories(repositories: Sequence[Repository], yaml: bool) -> None:
     tabulate(headers, rows)
 
 
-def render_repository(repository: Repository, yaml: bool) -> None:
+def render_repository(
+        repository: Repository,
+        yaml: bool,
+        *,
+        product_id: Optional[int] = None,
+        product_version_id: Optional[int] = None) -> None:
     """
     Render a single repository according to the configured output mode.
     """
@@ -49,13 +54,20 @@ def render_repository(repository: Repository, yaml: bool) -> None:
         pretty_yaml(repository)
         return
 
+    pid = product_id if product_id is not None else repository.product_id
+    vid = product_version_id if product_version_id is not None else repository.product_version_id
+
     echo(f"Repository: {repository.description} [ID: {repository.id}]")
     echo(f"  Product: {repository.product_name or ''}")
+    if pid is not None:
+        echo(f"  Product ID: {pid}")
     echo(f"  Version: {repository.product_version or ''}")
+    if vid is not None:
+        echo(f"  Version ID: {vid}")
     echo(f"  File Name: {repository.file_name}")
     echo(f"  File Size: {repository.file_size}")
     echo(f"  SHA256: {repository.sha256}")
-    echo(f"  Content Types: {', '.join(repository.content_types)}")
+    echo(f"  Content Types: {', '.join(getattr(ct, 'value', ct) for ct in repository.content_types)}")
     if repository.download_link:
         echo(f"  Download: {repository.download_link}")
     echo(f"  Published: {repository.publish_date.isoformat() if repository.publish_date else ''}")
@@ -128,6 +140,27 @@ def _split_comma(s: Optional[str]) -> List[str]:
     if s is None or not s.strip():
         return []
     return [part.strip() for part in s.split(',') if part.strip()]
+
+
+def _normalize_repository_payload(data: dict) -> dict:
+    """
+    Normalize payload to use field names (snake_case) only, avoiding
+    duplicate alias keys that trigger extra_forbidden.
+    """
+
+    alias_to_field = (
+        ('contentTypes', 'content_types'),
+        ('fileName', 'file_name'),
+        ('fileSize', 'file_size'),
+        ('longDescription', 'long_description'),
+    )
+    for alias, field in alias_to_field:
+        if alias in data:
+            if field not in data:
+                data[field] = data.pop(alias)
+            else:
+                data.pop(alias, None)
+    return data
 
 
 @repository.command(name="create")
@@ -217,6 +250,7 @@ def create_repository(
             'longDescription': long_description,
         }
 
+    data = _normalize_repository_payload(data)
     payload = RepositoryCreate.model_validate(data)
     if dry_run:
         buf = StringIO()
@@ -224,7 +258,13 @@ def create_repository(
         echo(buf.getvalue())
         return
     repository = state.client.create_repository(product_version_id, payload)
-    render_repository(repository, state.yaml_output)
+    version = state.client.get_product_version(product_version_id)
+    render_repository(
+        repository,
+        state.yaml_output,
+        product_id=version.product_id,
+        product_version_id=product_version_id,
+    )
 
 
 @repository.command(name="update")
@@ -293,8 +333,8 @@ def update_repository(
             meta = file_metadata(artifact_path)
             data = merge_payload(
                 data,
-                fileName=meta['fileName'],
-                fileSize=meta['fileSize'],
+                file_name=meta['fileName'],
+                file_size=meta['fileSize'],
                 sha256=meta['sha256'],
                 md5=meta['md5'],
             )
@@ -302,11 +342,11 @@ def update_repository(
             data,
             description=description,
             visibility=visibility,
-            contentTypes=list(content_type) if content_type else None,
+            content_types=list(content_type) if content_type else None,
             issues=_split_comma(issues) if issues else None,
             classifier=_split_comma(classifier) if classifier else None,
             installation=installation,
-            longDescription=long_description,
+            long_description=long_description,
         )
     else:
         existing = state.client.get_repository(file_id)
@@ -316,13 +356,14 @@ def update_repository(
         data.pop('product_version', None)
         data.pop('publish_date', None)
         data.pop('update_date', None)
+        data.pop('download_link', None)
 
         if artifact_path is not None:
             meta = file_metadata(artifact_path)
             data = merge_payload(
                 data,
-                fileName=meta['fileName'],
-                fileSize=meta['fileSize'],
+                file_name=meta['fileName'],
+                file_size=meta['fileSize'],
                 sha256=meta['sha256'],
                 md5=meta['md5'],
             )
@@ -330,13 +371,14 @@ def update_repository(
             data,
             description=description,
             visibility=visibility,
-            contentTypes=list(content_type) if content_type else None,
+            content_types=list(content_type) if content_type else None,
             issues=_split_comma(issues) if issues else None,
             classifier=_split_comma(classifier) if classifier else None,
             installation=installation,
-            longDescription=long_description,
+            long_description=long_description,
         )
 
+    data = _normalize_repository_payload(data)
     payload = RepositoryCreate.model_validate(data)
     if dry_run:
         buf = StringIO()
@@ -344,7 +386,19 @@ def update_repository(
         echo(buf.getvalue())
         return
     repository = state.client.update_repository(file_id, payload)
-    render_repository(repository, state.yaml_output)
+    if (
+            repository.product_version_id is not None
+            and repository.product_id is None
+    ):
+        version = state.client.get_product_version(repository.product_version_id)
+        render_repository(
+            repository,
+            state.yaml_output,
+            product_id=version.product_id,
+            product_version_id=repository.product_version_id,
+        )
+    else:
+        render_repository(repository, state.yaml_output)
 
 
 @repository.command(name="search")

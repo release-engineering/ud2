@@ -8,10 +8,21 @@ from typing import Any, Optional, Type, TypeVar, Union
 
 __all__ = (
     'Architecture',
+    'ContentType',
     'Visibility',
     'EnumValue',
     'coerce_enum',
 )
+
+
+class ContentType(str, Enum):
+    """
+    Content type classification for repository files.
+    """
+
+    DISTRIBUTION = 'DISTRIBUTION'
+    BUGFIX = 'BUGFIX'
+    SECURITY = 'SECURITY'
 
 
 class Visibility(str, Enum):

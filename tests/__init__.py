@@ -127,7 +127,7 @@ def make_repository_create(**overrides: Any) -> RepositoryCreate:
         'issues': [],
         'visibility': 'visible',
         'classifier': [],
-        'content_types': ['binary'],
+        'content_types': ['DISTRIBUTION'],
         'installation': 'Run installer',
         'long_description': 'Detailed installation steps.',
     }

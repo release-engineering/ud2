@@ -6,9 +6,12 @@ from datetime import datetime
 from typing import List, Optional, Union
 
 from .compat import Field, StrictModel, field_validator
+from .enums import ContentType, coerce_enum
 
 
 SHA256_LENGTH = 64
+
+ContentTypeValue = Union[ContentType, str]
 
 
 class FileIssue(StrictModel):
@@ -60,7 +63,10 @@ class RepositoryBase(StrictModel):
     visibility: str
     classifier: List[str]
 
-    content_types: List[str] = Field(alias='contentTypes', default_factory=list)
+    content_types: List[ContentTypeValue] = Field(
+        alias='contentTypes',
+        default_factory=list,
+    )
     installation: Optional[str] = Field(alias='installation', default=None)
     long_description: Optional[str] = Field(alias='longDescription', default=None)
 
@@ -76,6 +82,13 @@ class RepositoryBase(StrictModel):
             raise ValueError("issues must be a list")
 
         return [_coerce_issue(item) for item in value]
+
+    @field_validator('content_types', mode='before')
+    def _coerce_content_types(cls, value: Optional[List]) -> List:
+        if not isinstance(value, list):
+            raise ValueError("content_types must be a list")
+
+        return [coerce_enum(ContentType, item) for item in value]
 
     @field_validator('sha256', mode='before')
     def _normalize_sha256(cls, value: Optional[str]) -> str:
@@ -128,6 +141,8 @@ class Repository(RepositoryBase):
     """
 
     id: int
+    product_id: Optional[int] = Field(alias='productId', default=None)
+    product_version_id: Optional[int] = Field(alias='productVersionId', default=None)
     product_name: Optional[str] = Field(alias='productName', default=None)
     product_version: Optional[str] = Field(alias='productVersion', default=None)
     publish_date: Optional[datetime] = Field(alias='publishDate', default=None)

@@ -97,7 +97,7 @@ deliverable you intend to publish.
       fileSize: 734003200
       sha256: "1f2d3c4b5a69788766554433221100ffeeddccbbaa99887766554433221100ff"
       contentTypes:
-        - application/x-iso9660-image
+        - DISTRIBUTION
 
 2. Attach the file to the version using its identifier.
 
