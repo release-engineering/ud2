@@ -422,13 +422,13 @@ def apply_release(
         'updated': updated,
     }
 
-    if manifest_path:
-        sync_meta = ReleaseSyncMetadata(
-            product_id=product.id,
-            version_id=version.id,
-            file_ids=[r.id for r in result_repos],
-        )
-        _write_sync_metadata(manifest_path, sync_meta)
+    # if manifest_path:
+    #     sync_meta = ReleaseSyncMetadata(
+    #         product_id=product.id,
+    #         version_id=version.id,
+    #         file_ids=[r.id for r in result_repos],
+    #     )
+    #     _write_sync_metadata(manifest_path, sync_meta)
 
     return result
 
