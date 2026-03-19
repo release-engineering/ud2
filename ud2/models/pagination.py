@@ -15,7 +15,7 @@ __all__ = (
     'Pagination',
     'PaginatedProducts',
     'PaginatedRepositories',
-
+    'PaginatedVersions',
     'ResponseVersions',
 )
 
@@ -37,6 +37,14 @@ class PaginatedProducts(Pagination):
     """
 
     data: List[Product]
+
+
+class PaginatedVersions(Pagination):
+    """
+    Paginated response containing product version records.
+    """
+
+    data: List[Version]
 
 
 class ResponseVersions(StrictModel):

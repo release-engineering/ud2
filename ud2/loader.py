@@ -68,7 +68,7 @@ def _to_primitive(value: Any) -> Any:
         return value.value
 
     if isinstance(value, BaseModel):
-        return _to_primitive(value.model_dump())
+        return _to_primitive(value.model_dump(by_alias=False))
 
     if isinstance(value, dict):
         return {key: _to_primitive(item) for key, item in value.items()}

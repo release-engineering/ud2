@@ -43,7 +43,7 @@ Scenario 1: Create a Product
 
    .. code-block:: bash
 
-      ud2 products create --file product.yaml
+      ud2 product create --yaml-file product.yaml
 
    The CLI prints the new product record. Take note of the ``Id`` field; you
    will reference it when creating versions. You can retrieve the product again
@@ -51,7 +51,7 @@ Scenario 1: Create a Product
 
    .. code-block:: bash
 
-      ud2 products get 4001
+      ud2 product get 4001
 
 
 Scenario 2: Add a Version
@@ -72,14 +72,14 @@ Scenario 2: Add a Version
 
    .. code-block:: bash
 
-      ud2 versions create 4001 --file version.yaml
+      ud2 version create 4001 --yaml-file version.yaml
 
    Record the returned version ``Id``; you will need it when associating files.
    You can list all versions for the product whenever you need to confirm IDs:
 
    .. code-block:: bash
 
-      ud2 versions list 4001
+      ud2 version list 4001
 
 
 Scenario 3: Attach Release Files
@@ -103,11 +103,18 @@ deliverable you intend to publish.
 
    .. code-block:: bash
 
-      ud2 repositories create 101 --file repository.yaml
+      ud2 repository create 101 --yaml-file repository.yaml
 
    The output includes the repository ``Id``. Repeat the process with distinct
    payload files to associate additional artifacts (for example debug symbols or
    container images) with the same version.
+
+   Alternatively, use ``--file`` to reference the artifact on disk; the CLI will
+   derive ``fileName``, ``fileSize``, ``sha256``, and ``md5`` automatically:
+
+   .. code-block:: bash
+
+      ud2 repository create 101 --file ./atlas-1.0-ga.iso --description "Atlas 1.0 GA ISO"
 
 
 Scenario 4: Locate an Existing Version
@@ -118,7 +125,7 @@ list the known versions and filter for the one you need.
 
 .. code-block:: bash
 
-   ud2 versions list 4001
+   ud2 version list 4001
 
 Add ``--output yaml`` to pipe the structured data through tools such as ``yq``
 or ``jq`` if you prefer automated filtering:
@@ -149,14 +156,14 @@ and the new YAML file.
 
 .. code-block:: bash
 
-   ud2 repositories create 101 --file repository-debug.yaml
+   ud2 repository create 101 --yaml-file repository-debug.yaml
 
 You can confirm the inventory of files attached to a version by listing the
 repositories. Pagination options are available for large sets.
 
 .. code-block:: bash
 
-   ud2 repositories list 101 --limit 20
+   ud2 repository list 101 --limit 20
 
 
 Scenario 6: Fix a Typographical Error in a File Title
@@ -169,7 +176,7 @@ the current record, write a corrected payload, and submit it with ``update``.
 
    .. code-block:: bash
 
-      ud2 repositories get 101 205
+      ud2 repository get 205
 
 2. Copy the output into ``repository-corrected.yaml`` and adjust the fields that
    need fixing. For example, correcting the description spelling:
@@ -185,10 +192,10 @@ the current record, write a corrected payload, and submit it with ``update``.
 
    .. code-block:: bash
 
-      ud2 repositories update 101 205 --file repository-corrected.yaml
+      ud2 repository update 205 --yaml-file repository-corrected.yaml
 
 The CLI confirms success and prints the updated repository. If you only need to
-verify the change, re-run ``ud2 repositories get`` after the update.
+verify the change, re-run ``ud2 repository get`` after the update.
 
 
 Scenario 7: Check and Push a Release Manifest

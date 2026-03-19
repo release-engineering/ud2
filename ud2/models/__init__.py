@@ -3,11 +3,12 @@ Aggregate exports for UDv2 Pydantic models.
 """
 
 from .enums import Architecture, Visibility
-from .pagination import PaginatedProducts, PaginatedRepositories, Pagination, ResponseVersions
+from .pagination import (PaginatedProducts, PaginatedRepositories,
+                         PaginatedVersions, Pagination, ResponseVersions)
 from .product import Product, ProductCreate
 from .release import (ProductRef, Release, ReleaseSyncMetadata,
                       RepositoryEntry, VersionRef)
-from .repository import Repository, RepositoryCreate
+from .repository import FileIssue, Repository, RepositoryCreate
 from .version import Version, VersionCreate
 
 
@@ -21,12 +22,14 @@ __all__ = (
     "ProductCreate",
     "Version",
     "VersionCreate",
+    "FileIssue",
     "ResponseVersions",
     "Repository",
     "RepositoryCreate",
     "Pagination",
     "PaginatedProducts",
     "PaginatedRepositories",
+    "PaginatedVersions",
     "Architecture",
     "Visibility",
 )

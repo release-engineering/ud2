@@ -3,12 +3,38 @@ Pydantic models representing repository resources.
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from .compat import Field, StrictModel, field_validator
 
 
 SHA256_LENGTH = 64
+
+
+class FileIssue(StrictModel):
+    """
+    Issue reference (e.g. Jira) for a file.
+
+    :param id: Issue identifier (e.g. TUSC-1234).
+    :param type: Issue type (e.g. jira). Defaults to "jira".
+    """
+
+    id: str
+    type: str = "jira"
+
+
+def _coerce_issue(item: Union[FileIssue, str, dict]) -> dict:
+    """Coerce str or dict to FileIssue-compatible dict."""
+
+    if isinstance(item, str):
+        return {"id": item, "type": "jira"}
+    if isinstance(item, dict):
+        return item
+    if isinstance(item, FileIssue):
+        return item.model_dump()
+    raise ValueError(
+        f"issues item must be str, dict, or FileIssue, got {type(item)}",
+    )
 
 
 class RepositoryBase(StrictModel):
@@ -30,7 +56,7 @@ class RepositoryBase(StrictModel):
     file_size: int = Field(alias='fileSize')
     sha256: str
     md5: str
-    issues: List[str]
+    issues: List[FileIssue]
     visibility: str
     classifier: List[str]
 
@@ -43,6 +69,13 @@ class RepositoryBase(StrictModel):
         if value <= 0:
             raise ValueError('file_size must be greater than zero')
         return value
+
+    @field_validator('issues', mode='before')
+    def _coerce_issues(cls, value: Optional[List]) -> List:
+        if not isinstance(value, list):
+            raise ValueError("issues must be a list")
+
+        return [_coerce_issue(item) for item in value]
 
     @field_validator('sha256', mode='before')
     def _normalize_sha256(cls, value: Optional[str]) -> str:

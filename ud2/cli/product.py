@@ -3,13 +3,15 @@ Product resource command registrations.
 """
 
 
+from io import StringIO
+from pathlib import Path
 from typing import Optional, Sequence
 
-from click import Choice, argument, echo, option, group
+from click import Choice, ClickException, argument, echo, option, group
 
 from ..loader import pretty_yaml, load_yaml
 from ..models import Product, ProductCreate
-from .util import CLIState, pass_state, catchall, tabulate
+from .util import CLIState, merge_payload, pass_state, catchall, tabulate
 
 
 def render_products(products: Sequence[Product], yaml: bool) -> None:
@@ -106,40 +108,187 @@ def get_product(
 
 
 @product.command(name="create")
-@option("--file", "payload_path", required=True,
+@option("--yaml-file", "yaml_path", type=Path,
         help="Path to a YAML file describing the product payload.")
+@option("--name", type=str, help="Product name.")
+@option("--eng-id", "eng_id", type=int, help="Engineering ID.")
+@option("--arch", type=str, help="Architecture (e.g. x86_64).")
+@option("--category", type=str, help="Category.")
+@option("--product-code", "product_code", type=str, help="Product code.")
+@option("--product-group", "product_group", type=str, help="Product group.")
+@option("--product-group-name", "product_group_name", type=str,
+        help="Product group name.")
+@option("--dry-run", is_flag=True,
+        help="Show payload YAML without sending.")
 @pass_state
 @catchall
 def create_product(
         state: CLIState,
-        payload_path: str) -> None:
+        yaml_path: Optional[Path],
+        name: Optional[str],
+        eng_id: Optional[int],
+        arch: Optional[str],
+        category: Optional[str],
+        product_code: Optional[str],
+        product_group: Optional[str],
+        product_group_name: Optional[str],
+        dry_run: bool = False) -> None:
     """
-    Create a product using a YAML payload.
+    Create a product. Use --yaml-file or --name with --eng-id.
     """
 
-    data = load_yaml(payload_path)
+    if yaml_path is not None:
+        data = load_yaml(str(yaml_path))
+        data = merge_payload(
+            data,
+            name=name,
+            eng_id=eng_id,
+            arch=arch,
+            category=category,
+            product_code=product_code,
+            product_group=product_group,
+            product_group_name=product_group_name,
+        )
+    else:
+        if name is None or eng_id is None:
+            raise ClickException(
+                "Provide --yaml-file or both --name and --eng-id.",
+            )
+        data = merge_payload(
+            {},
+            name=name,
+            eng_id=eng_id,
+            arch=arch,
+            category=category,
+            product_code=product_code,
+            product_group=product_group,
+            product_group_name=product_group_name,
+        )
+
     payload = ProductCreate.model_validate(data)
+    if dry_run:
+        buf = StringIO()
+        pretty_yaml(payload.model_dump(by_alias=False, exclude_none=True), out=buf)
+        echo(buf.getvalue())
+        return
     product = state.client.create_product(payload)
     render_product(product, state.yaml_output)
 
 
 @product.command(name="update")
 @argument("product_id", type=int)
-@option("--file", "payload_path", required=True, type=str,
+@option("--yaml-file", "yaml_path", type=Path,
         help="Path to a YAML file describing the product payload.")
+@option("--name", type=str, help="Product name.")
+@option("--eng-id", "eng_id", type=int, help="Engineering ID.")
+@option("--arch", type=str, help="Architecture (e.g. x86_64).")
+@option("--category", type=str, help="Category.")
+@option("--product-code", "product_code", type=str, help="Product code.")
+@option("--product-group", "product_group", type=str, help="Product group.")
+@option("--product-group-name", "product_group_name", type=str,
+        help="Product group name.")
+@option("--dry-run", is_flag=True,
+        help="Show payload YAML without sending.")
 @pass_state
 @catchall
 def update_product(
         state: CLIState,
         product_id: int,
-        payload_path: str) -> None:
+        yaml_path: Optional[Path],
+        name: Optional[str],
+        eng_id: Optional[int],
+        arch: Optional[str],
+        category: Optional[str],
+        product_code: Optional[str],
+        product_group: Optional[str],
+        product_group_name: Optional[str],
+        dry_run: bool = False) -> None:
     """
-    Update a product using a YAML payload.
+    Update a product. Provide --yaml-file or at least one field to update.
     """
 
-    payload = load_yaml(payload_path, model=ProductCreate)
+    if yaml_path is not None:
+        data = load_yaml(str(yaml_path))
+        data = merge_payload(
+            data,
+            name=name,
+            eng_id=eng_id,
+            arch=arch,
+            category=category,
+            product_code=product_code,
+            product_group=product_group,
+            product_group_name=product_group_name,
+        )
+        payload = ProductCreate.model_validate(data)
+    else:
+        has_option = any(
+            v is not None
+            for v in (
+                name,
+                eng_id,
+                arch,
+                category,
+                product_code,
+                product_group,
+                product_group_name,
+            )
+        )
+        if not has_option:
+            raise ClickException(
+                "Provide --yaml-file or at least one field to update.",
+            )
+        existing = state.client.get_product(product_id)
+        data = existing.model_dump(by_alias=False, exclude_none=True)
+        data.pop('id', None)
+        data = merge_payload(
+            data,
+            name=name,
+            eng_id=eng_id,
+            arch=arch,
+            category=category,
+            product_code=product_code,
+            product_group=product_group,
+            product_group_name=product_group_name,
+        )
+        payload = ProductCreate.model_validate(data)
+
+    if dry_run:
+        buf = StringIO()
+        pretty_yaml(payload.model_dump(by_alias=False, exclude_none=True), out=buf)
+        echo(buf.getvalue())
+        return
     product = state.client.update_product(product_id, payload)
     render_product(product, state.yaml_output)
+
+
+@product.command(name="search")
+@option("--name", type=str, help="Product name (partial, case-insensitive).")
+@option("--eng-id", "eng_id", type=int,
+        help="Engineering ID (exact match, must be > 0).")
+@option("--page", type=int, help="Page number.")
+@option("--limit", type=int, help="Items per page.")
+@pass_state
+@catchall
+def search_products(
+        state: CLIState,
+        name: Optional[str],
+        eng_id: Optional[int],
+        page: Optional[int],
+        limit: Optional[int]) -> None:
+    """
+    Search products by name and/or engineering ID.
+    """
+
+    if name is None and eng_id is None:
+        raise ClickException("At least one of --name or --eng-id is required.")
+
+    page_obj = state.client.search_products(
+        name=name,
+        eng_id=eng_id,
+        page=page,
+        limit=limit,
+    )
+    render_products(list(page_obj.data), state.yaml_output)
 
 
 @product.command(name="delete")

@@ -443,7 +443,7 @@ def _write_sync_metadata(path: str, sync_meta: ReleaseSyncMetadata) -> None:
     if data is None:
         data = {}
 
-    data['_sync'] = sync_meta.model_dump(by_alias=True, exclude_none=True)
+    data['_sync'] = sync_meta.model_dump(by_alias=False, exclude_none=True)
 
     with p.open('w', encoding='utf-8') as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False)

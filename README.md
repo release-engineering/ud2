@@ -31,9 +31,9 @@ ud2 --help
 By default the CLI reads configuration from `~/.config/ud2/config.ini`. Override
 with `--config` and select profiles with `--env`.
 
-- Create a product: `ud2 products create --file product.yaml`
-- Add a version: `ud2 versions create <product-id> --file version.yaml`
-- Attach release files: `ud2 repositories create <version-id> --file repo.yaml`
+- Create a product: `ud2 product create --yaml-file product.yaml` or `ud2 product create --name "X" --eng-id 123`
+- Add a version: `ud2 version create <product-id> --yaml-file version.yaml` or `ud2 version create <product-id> --version 1.0`
+- Attach release files: `ud2 repository create <version-id> --yaml-file repo.yaml` or `ud2 repository create <version-id> --file ./artifact.iso --description "Title"`
 - Check or push a full release: `ud2 release check release.yaml`, `ud2 release push release.yaml`
 
 See `docs/cli_quickstart.rst` for detailed, copy/paste friendly walkthroughs and

@@ -21,14 +21,14 @@ def _report_to_serializable(report: Dict[str, Any]) -> Dict[str, Any]:
         'product': {
             'status': report['product']['status'],
             'product': (
-                report['product']['product'].model_dump(by_alias=True)
+                report['product']['product'].model_dump(by_alias=False)
                 if report['product']['product'] else None
             ),
         },
         'version': {
             'status': report['version']['status'],
             'version': (
-                report['version']['version'].model_dump(by_alias=True)
+                report['version']['version'].model_dump(by_alias=False)
                 if report['version']['version'] else None
             ),
         },
@@ -137,10 +137,10 @@ def push(
 
     if state.yaml_output:
         out = {
-            'product': result['product'].model_dump(by_alias=True),
-            'version': result['version'].model_dump(by_alias=True),
-            'created': [r.model_dump(by_alias=True) for r in result['created']],
-            'updated': [r.model_dump(by_alias=True) for r in result['updated']],
+            'product': result['product'].model_dump(by_alias=False),
+            'version': result['version'].model_dump(by_alias=False),
+            'created': [r.model_dump(by_alias=False) for r in result['created']],
+            'updated': [r.model_dump(by_alias=False) for r in result['updated']],
         }
         pretty_yaml(out)
         return

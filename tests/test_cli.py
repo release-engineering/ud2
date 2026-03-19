@@ -10,7 +10,7 @@ class TestCliRegistration(unittest.TestCase):
         self.assertIn("product", commands)
         product_cmd = cli_main.get_command(None, "product")
         subcommands = product_cmd.list_commands(None)
-        for expected in ("list", "get", "create", "update", "delete"):
+        for expected in ("list", "search", "get", "create", "update", "delete"):
             self.assertIn(expected, subcommands)
 
     def test_repository_group_registered(self) -> None:
@@ -18,7 +18,7 @@ class TestCliRegistration(unittest.TestCase):
         self.assertIn("repository", commands)
         repository_cmd = cli_main.get_command(None, "repository")
         subcommands = repository_cmd.list_commands(None)
-        for expected in ("list", "get", "create", "update", "delete"):
+        for expected in ("list", "search", "get", "create", "update", "delete"):
             self.assertIn(expected, subcommands)
 
     def test_version_group_registered(self) -> None:
@@ -26,7 +26,7 @@ class TestCliRegistration(unittest.TestCase):
         self.assertIn("version", commands)
         version_cmd = cli_main.get_command(None, "version")
         subcommands = version_cmd.list_commands(None)
-        for expected in ("list", "get", "create", "update", "delete"):
+        for expected in ("list", "search", "get", "create", "update", "delete"):
             self.assertIn(expected, subcommands)
 
     def test_release_group_registered(self) -> None:

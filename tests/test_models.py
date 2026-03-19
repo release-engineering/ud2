@@ -6,9 +6,9 @@
 import unittest
 from datetime import datetime, timezone
 
-from ud2.models import (Architecture, PaginatedProducts, PaginatedRepositories,
-                        Product, ProductCreate, Repository, RepositoryCreate,
-                        VersionCreate, Visibility)
+from ud2.models import (Architecture, FileIssue, PaginatedProducts,
+                        PaginatedRepositories, Product, ProductCreate,
+                        Repository, RepositoryCreate, VersionCreate, Visibility)
 
 from . import (DEFAULT_SHA256, dump_model, make_product, make_product_create,
                make_repository)
@@ -71,6 +71,49 @@ class TestRepositoryModels(unittest.TestCase):
                     'sha256': 'abc123',
                 },
             )
+
+    def test_issues_accepts_plain_strings_coerces_to_file_issue(self) -> None:
+        repo = RepositoryCreate.model_validate(
+            {
+                'description': 'Test',
+                'fileName': 'test.iso',
+                'fileSize': 1024,
+                'sha256': DEFAULT_SHA256,
+                'md5': 'a' * 32,
+                'issues': ['TUSC-1234', 'TUSC-5678'],
+                'visibility': 'visible',
+                'classifier': [],
+            },
+        )
+        self.assertEqual(len(repo.issues), 2)
+        self.assertIsInstance(repo.issues[0], FileIssue)
+        self.assertEqual(repo.issues[0].id, 'TUSC-1234')
+        self.assertEqual(repo.issues[0].type, 'jira')
+        self.assertEqual(repo.issues[1].id, 'TUSC-5678')
+        self.assertEqual(repo.issues[1].type, 'jira')
+
+    def test_issues_accepts_id_type_dict_as_file_issue(self) -> None:
+        repo = RepositoryCreate.model_validate(
+            {
+                'description': 'Test',
+                'fileName': 'test.iso',
+                'fileSize': 1024,
+                'sha256': DEFAULT_SHA256,
+                'md5': 'a' * 32,
+                'issues': [
+                    {'id': 'TUSC-1234', 'type': 'jira'},
+                    {'id': 'BZ-999', 'type': 'bugzilla'},
+                ],
+                'visibility': 'visible',
+                'classifier': [],
+            },
+        )
+        self.assertEqual(len(repo.issues), 2)
+        self.assertIsInstance(repo.issues[0], FileIssue)
+        self.assertEqual(repo.issues[0].id, 'TUSC-1234')
+        self.assertEqual(repo.issues[0].type, 'jira')
+        self.assertEqual(repo.issues[1].id, 'BZ-999')
+        self.assertEqual(repo.issues[1].type, 'bugzilla')
 
     def test_repository_dates_parse_iso_strings(self) -> None:
         repository = Repository.model_validate(

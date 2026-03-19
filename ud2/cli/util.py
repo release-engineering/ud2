@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from functools import wraps
 from itertools import zip_longest
 from operator import itemgetter
-from typing import (Any, Callable, List, Optional, Sequence, TextIO, Tuple,
-                    Union)
+from typing import (Any, Callable, Dict, List, Optional, Sequence, TextIO,
+                    Tuple, Union)
 
 from pathlib import Path
 from click import ClickException, Context, echo, pass_context
@@ -128,6 +128,19 @@ def catchall(function: Callable[..., Any]) -> Callable[..., Any]:
             raise
 
     return wrapper
+
+
+def merge_payload(base: Dict[str, Any], **overrides: Any) -> Dict[str, Any]:
+    """
+    Merge overrides into base; exclude None. Return dict suitable for
+    model_validate.
+    """
+
+    result = dict(base)
+    for key, value in overrides.items():
+        if value is not None:
+            result[key] = value
+    return result
 
 
 def tabulate(

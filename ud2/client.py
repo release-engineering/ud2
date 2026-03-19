@@ -35,9 +35,10 @@ import requests
 from pydantic import BaseModel
 
 from .config import UDConfig
-from .models import (PaginatedProducts, PaginatedRepositories, Product,
-                     ProductCreate, Repository, RepositoryCreate,
-                     ResponseVersions, Version, VersionCreate)
+from .models import (PaginatedProducts, PaginatedRepositories,
+                     PaginatedVersions, Product, ProductCreate,
+                     Repository, RepositoryCreate, ResponseVersions,
+                     Version, VersionCreate)
 
 
 logger = logging.getLogger('UDClient')
@@ -203,7 +204,12 @@ class UDClient:
         :returns: Newly created product.
         """
 
-        return self._POST('/products', payload=payload, model=Product)
+        return self._POST(
+            '/products',
+            payload=payload,
+            model=Product,
+            unwrap_data=True,
+        )
 
 
     def get_product(self, product_id: int) -> Product:
@@ -230,7 +236,12 @@ class UDClient:
         :returns: Updated product.
         """
 
-        return self._PUT(f'/products/{product_id}', payload=payload, model=Product)
+        return self._PUT(
+            f'/products/{product_id}',
+            payload=payload,
+            model=Product,
+            unwrap_data=True,
+        )
 
 
     def delete_product(self, product_id: int) -> None:
@@ -241,6 +252,31 @@ class UDClient:
         """
 
         self._DELETE(f'/products/{product_id}')
+
+
+    def search_products(
+            self,
+            name: Optional[str] = None,
+            eng_id: Optional[int] = None,
+            page: Optional[int] = None,
+            limit: Optional[int] = None) -> PaginatedProducts:
+        """
+        Search products by name and/or engineering ID.
+
+        :param name: Product name (partial, case-insensitive).
+        :param eng_id: Engineering ID (exact match, must be > 0).
+        :param page: Page number used for pagination.
+        :param limit: Items per page for pagination.
+        :returns: Paginated product results.
+        """
+
+        params = self._build_search_params(
+            page=page,
+            limit=limit,
+            name=name,
+            eng_id=eng_id,
+        )
+        return self._GET('/products/search', params=params, model=PaginatedProducts)
 
 
     def list_product_versions(self, product_id: int) -> List[Version]:
@@ -275,6 +311,7 @@ class UDClient:
             f'/products/{product_id}/product_versions',
             payload=payload,
             model=Version,
+            unwrap_data=True,
         )
 
 
@@ -309,6 +346,7 @@ class UDClient:
             f'/product_versions/{version_id}',
             payload=payload,
             model=Version,
+            unwrap_data=True,
         )
 
 
@@ -320,6 +358,38 @@ class UDClient:
         """
 
         self._DELETE(f'/product_versions/{version_id}')
+
+
+    def search_product_versions(
+            self,
+            version: Optional[str] = None,
+            product_id: Optional[int] = None,
+            cpe: Optional[str] = None,
+            page: Optional[int] = None,
+            limit: Optional[int] = None) -> PaginatedVersions:
+        """
+        Search product versions by version, CPE, and/or product ID.
+
+        :param version: Version string (glob pattern, case-insensitive).
+        :param product_id: Product ID (exact match, must be > 0).
+        :param cpe: CPE string (glob pattern, case-insensitive).
+        :param page: Page number used for pagination.
+        :param limit: Items per page for pagination.
+        :returns: Paginated product version results.
+        """
+
+        params = self._build_search_params(
+            page=page,
+            limit=limit,
+            version=version,
+            product_id=product_id,
+            cpe=cpe,
+        )
+        return self._GET(
+            '/product_versions/search',
+            params=params,
+            model=PaginatedVersions,
+        )
 
 
     def page_repositories(
@@ -424,6 +494,7 @@ class UDClient:
             f'/product_versions/{product_version_id}/files',
             payload=payload,
             model=Repository,
+            unwrap_data=True,
         )
 
 
@@ -458,6 +529,7 @@ class UDClient:
             f'/files/{file_id}',
             payload=payload,
             model=Repository,
+            unwrap_data=True,
         )
 
 
@@ -469,6 +541,50 @@ class UDClient:
         """
 
         self._DELETE(f'/files/{file_id}')
+
+
+    def search_files(
+            self,
+            product_id: Optional[int] = None,
+            version_id: Optional[int] = None,
+            description: Optional[str] = None,
+            file_name: Optional[str] = None,
+            jira: Optional[str] = None,
+            content_type: Optional[str] = None,
+            jboss_id: Optional[int] = None,
+            page: Optional[int] = None,
+            limit: Optional[int] = None) -> PaginatedRepositories:
+        """
+        Search files by various metadata.
+
+        :param product_id: Product ID (exact match).
+        :param version_id: Product version ID (exact match).
+        :param description: Description (glob pattern, case-insensitive).
+        :param file_name: File name (glob pattern, case-insensitive).
+        :param jira: Jira issue ID (e.g. TUSC-1234).
+        :param content_type: Content type (array inclusion check).
+        :param jboss_id: JBoss ID (exact match).
+        :param page: Page number used for pagination.
+        :param limit: Items per page for pagination.
+        :returns: Paginated repository (file) results.
+        """
+
+        params = self._build_search_params(
+            page=page,
+            limit=limit,
+            product_id=product_id,
+            version_id=version_id,
+            description=description,
+            file_name=file_name,
+            jira=jira,
+            content_type=content_type,
+            jboss_id=jboss_id,
+        )
+        return self._GET(
+            '/files/search',
+            params=params,
+            model=PaginatedRepositories,
+        )
 
 
     @staticmethod
@@ -492,6 +608,25 @@ class UDClient:
             params['sort'] = sort
 
         return params or None
+
+
+    @staticmethod
+    def _build_search_params(
+            page: Optional[int],
+            limit: Optional[int],
+            **search_params: Any) -> Dict[str, Any]:
+        """
+        Build query params for search endpoints; excludes None values.
+        """
+
+        params: Dict[str, Any] = {
+            k: v for k, v in search_params.items() if v is not None
+        }
+        if page is not None:
+            params['page'] = page
+        if limit is not None:
+            params['limit'] = limit
+        return params
 
 
     def _request(
@@ -518,7 +653,7 @@ class UDClient:
 
         if isinstance(payload, BaseModel):
             payload = payload.model_dump(
-                by_alias=True,
+                by_alias=False,
                 exclude_none=True,
             )
 

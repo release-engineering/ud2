@@ -7,13 +7,13 @@ import requests
 
 from ud2.client import UDClient
 from ud2.config import UDConfig
-from ud2.models import (PaginatedProducts, PaginatedRepositories, Product,
-                        Repository, Version)
+from ud2.models import (PaginatedProducts, PaginatedRepositories,
+                        PaginatedVersions, Product, Repository, Version)
 
 from . import (DEFAULT_SHA256, dump_model, make_paginated_products,
-               make_paginated_repositories, make_product, make_product_create,
-               make_repository, make_repository_create, make_version,
-               make_version_create)
+               make_paginated_repositories, make_paginated_versions,
+               make_product, make_product_create, make_repository,
+               make_repository_create, make_version, make_version_create)
 
 
 class StubResponse:
@@ -184,7 +184,7 @@ class TestUDClient(unittest.TestCase):
         )
         self.assertEqual(
             captured['json'],
-            payload.model_dump(by_alias=True, exclude_none=True),
+            payload.model_dump(by_alias=False, exclude_none=True),
         )
 
     def test_get_product_with_wrapped_response_returns_model(self) -> None:
@@ -261,6 +261,27 @@ class TestUDClient(unittest.TestCase):
             'https://downloads.example.test/api/products/10/product_versions',
         )
 
+    def test_create_product_version_with_wrapped_response_returns_model(
+            self) -> None:
+        session = StubSession([
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data={
+                    'data': dump_model(
+                        make_version(id=3, productId=10, version='9.0'),
+                    ),
+                },
+            ),
+        ])
+        client = UDClient(config=self.config, session=session)
+        payload = make_version_create(version='9.0')
+
+        result = client.create_product_version(product_id=10, payload=payload)
+
+        self.assertIsInstance(result, Version)
+        self.assertEqual(result.id, 3)
+        self.assertEqual(result.version, '9.0')
+
     def test_get_product_version_uses_product_versions_path(self) -> None:
         session = StubSession([
             StubResponse(
@@ -318,7 +339,7 @@ class TestUDClient(unittest.TestCase):
             'https://downloads.example.test/api/product_versions/3',
         )
 
-    def test_create_repository_serializes_aliases(self) -> None:
+    def test_create_repository_serializes_payload(self) -> None:
         session = StubSession([
             StubResponse(
                 headers={'Content-Type': 'application/json'},
@@ -326,8 +347,8 @@ class TestUDClient(unittest.TestCase):
                     make_repository(
                         id=7,
                         description='Installer',
-                        fileName='setup.iso',
-                        fileSize=1024,
+                        file_name='setup.iso',
+                        file_size=1024,
                         sha256=DEFAULT_SHA256,
                     ),
                 ),
@@ -356,7 +377,7 @@ class TestUDClient(unittest.TestCase):
         )
         self.assertEqual(
             captured['json'],
-            payload.model_dump(by_alias=True, exclude_none=True),
+            payload.model_dump(by_alias=False, exclude_none=True),
         )
 
     def test_page_repositories_returns_paginated_model(self) -> None:
@@ -434,6 +455,114 @@ class TestUDClient(unittest.TestCase):
         second_request = session.requests[1]
         self.assertEqual(first_request['params'], {'page': 1})
         self.assertEqual(second_request['params'], {'page': 2, 'limit': 1})
+
+    def test_search_products_calls_search_endpoint_with_params(self) -> None:
+        session = StubSession([
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data=dump_model(
+                    make_paginated_products(
+                        products=[make_product(id=1, name='RHEL')],
+                        limit=10,
+                        page=1,
+                        total=1,
+                        total_pages=1,
+                    ),
+                ),
+            ),
+        ])
+        client = UDClient(config=self.config, session=session)
+
+        result = client.search_products(name='RHEL', eng_id=101)
+
+        self.assertIsInstance(result, PaginatedProducts)
+        self.assertEqual(len(result.data), 1)
+        self.assertEqual(result.data[0].name, 'RHEL')
+        self.assertEqual(len(session.requests), 1)
+        captured = session.requests[0]
+        self.assertEqual(captured['method'], 'GET')
+        self.assertIn(
+            '/products/search',
+            captured['url'],
+        )
+        self.assertEqual(captured['params']['name'], 'RHEL')
+        self.assertEqual(captured['params']['eng_id'], 101)
+
+    def test_search_product_versions_calls_search_endpoint_with_params(
+            self) -> None:
+        session = StubSession([
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data=dump_model(
+                    make_paginated_versions(
+                        versions=[make_version(id=1, productId=5, version='8.5')],
+                        limit=10,
+                        page=1,
+                        total=1,
+                        total_pages=1,
+                    ),
+                ),
+            ),
+        ])
+        client = UDClient(config=self.config, session=session)
+
+        result = client.search_product_versions(
+            version='8.5',
+            product_id=5,
+        )
+
+        self.assertIsInstance(result, PaginatedVersions)
+        self.assertEqual(len(result.data), 1)
+        self.assertEqual(result.data[0].version, '8.5')
+        self.assertEqual(len(session.requests), 1)
+        captured = session.requests[0]
+        self.assertEqual(captured['method'], 'GET')
+        self.assertIn(
+            '/product_versions/search',
+            captured['url'],
+        )
+        self.assertEqual(captured['params']['version'], '8.5')
+        self.assertEqual(captured['params']['product_id'], 5)
+
+    def test_search_files_calls_search_endpoint_with_params(self) -> None:
+        session = StubSession([
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data=dump_model(
+                    make_paginated_repositories(
+                        repositories=[
+                            make_repository(
+                                id=1,
+                                description='Installer',
+                            ),
+                        ],
+                        limit=10,
+                        page=1,
+                        total=1,
+                        total_pages=1,
+                    ),
+                ),
+            ),
+        ])
+        client = UDClient(config=self.config, session=session)
+
+        result = client.search_files(
+            product_id=1,
+            version_id=2,
+        )
+
+        self.assertIsInstance(result, PaginatedRepositories)
+        self.assertEqual(len(result.data), 1)
+        self.assertEqual(result.data[0].description, 'Installer')
+        self.assertEqual(len(session.requests), 1)
+        captured = session.requests[0]
+        self.assertEqual(captured['method'], 'GET')
+        self.assertIn(
+            '/files/search',
+            captured['url'],
+        )
+        self.assertEqual(captured['params']['product_id'], 1)
+        self.assertEqual(captured['params']['version_id'], 2)
 
     def test_delete_repository_uses_files_endpoint(self) -> None:
         session = StubSession([

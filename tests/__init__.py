@@ -9,7 +9,8 @@ from typing import Any, Dict, Iterable, Optional
 
 from ud2.models.compat import BaseModel
 from ud2.models.enums import Architecture, Visibility
-from ud2.models.pagination import PaginatedProducts, PaginatedRepositories
+from ud2.models.pagination import (PaginatedProducts, PaginatedRepositories,
+                                   PaginatedVersions)
 from ud2.models.product import Product, ProductCreate
 from ud2.models.repository import Repository, RepositoryCreate
 from ud2.models.version import Version, VersionCreate
@@ -26,6 +27,7 @@ __all__ = (
     'make_repository',
     'make_paginated_products',
     'make_paginated_repositories',
+    'make_paginated_versions',
 )
 
 
@@ -35,10 +37,10 @@ DEFAULT_TIMESTAMP = datetime(2024, 1, 1, tzinfo=timezone.utc)
 
 def dump_model(model: BaseModel) -> Dict[str, Any]:
     """
-    Serialize a model using API-friendly aliases.
+    Serialize a model using API format (snake_case).
     """
 
-    return _normalize(model.model_dump(by_alias=True, exclude_none=True))
+    return _normalize(model.model_dump(by_alias=False, exclude_none=True))
 
 
 def _normalize(value: Any) -> Any:
@@ -140,10 +142,10 @@ def make_repository(**overrides: Any) -> Repository:
 
     base = dump_model(make_repository_create())
     base.setdefault('id', 1)
-    base.setdefault('productName', 'Test Product')
-    base.setdefault('productVersion', '1.0')
-    base.setdefault('publishDate', DEFAULT_TIMESTAMP.isoformat())
-    base.setdefault('updateDate', DEFAULT_TIMESTAMP.isoformat())
+    base.setdefault('product_name', 'Test Product')
+    base.setdefault('product_version', '1.0')
+    base.setdefault('publish_date', DEFAULT_TIMESTAMP.isoformat())
+    base.setdefault('update_date', DEFAULT_TIMESTAMP.isoformat())
     base.update(overrides)
     return Repository.model_validate(base)
 
@@ -184,6 +186,25 @@ def make_paginated_repositories(
     }
     payload.update(overrides)
     return PaginatedRepositories.model_validate(payload)
+
+
+def make_paginated_versions(
+        versions: Optional[Iterable[Version]] = None,
+        **overrides: Any) -> PaginatedVersions:
+    """
+    Construct a PaginatedVersions instance for testing.
+    """
+
+    version_list = list(versions) if versions is not None else []
+    payload = {
+        'data': [dump_model(v) for v in version_list],
+        'limit': overrides.pop('limit', max(len(version_list), 1)),
+        'page': overrides.pop('page', 1),
+        'total': overrides.pop('total', len(version_list)),
+        'total_pages': overrides.pop('total_pages', 1 if version_list else 0),
+    }
+    payload.update(overrides)
+    return PaginatedVersions.model_validate(payload)
 
 
 # The end.

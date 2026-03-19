@@ -179,7 +179,7 @@ class TestResolveRepository(unittest.TestCase):
             make_repository(
                 id=1,
                 description='Installer',
-                fileName='installer.iso',
+                file_name='installer.iso',
                 sha256=DEFAULT_SHA256,
             ),
         ]
@@ -199,7 +199,7 @@ class TestResolveRepository(unittest.TestCase):
             make_repository(
                 id=1,
                 description='Installer',
-                fileName='installer.iso',
+                file_name='installer.iso',
                 sha256='a' * 64,
             ),
         ]
@@ -234,7 +234,7 @@ class TestEnsureRepository(unittest.TestCase):
             make_repository(
                 id=1,
                 description='Installer',
-                fileName='installer.iso',
+                file_name='installer.iso',
                 sha256='a' * 64,
             ),
         ]
