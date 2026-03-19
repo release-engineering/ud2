@@ -19,7 +19,7 @@ Prerequisites
 * You can reach the Unified Downloads API from the machine running the CLI.
 
 All examples below use the default "friendly" output, which renders tabular data
-for easy scanning. Switch to YAML with ``--output yaml`` if you prefer machine
+for easy scanning. Switch to YAML with ``--yaml`` if you prefer machine
 readable results.
 
 
@@ -127,12 +127,12 @@ list the known versions and filter for the one you need.
 
    ud2 version list 4001
 
-Add ``--output yaml`` to pipe the structured data through tools such as ``yq``
+Add ``--yaml`` to pipe the structured data through tools such as ``yq``
 or ``jq`` if you prefer automated filtering:
 
 .. code-block:: bash
 
-   ud2 --output yaml versions list 4001 | yq '.data[] | select(.version == "1.0")'
+   ud2 version list 4001 --yaml | yq '.[] | select(.version == "1.0")'
 
 The friendly output also includes the version ``Id``, which you will use in the
 next scenario when adding more files.
@@ -151,7 +151,7 @@ example ``repository-debug.yaml``) describing the additional file.
    fileSize: 189792256
    sha256: "ffeeddccbbaa0099887766554433221100ffeeddccbbaa009988776655443322"
 
-Use the same ``ud2 repositories create`` command, passing the version identifier
+Use the same ``ud2 repository create`` command, passing the version identifier
 and the new YAML file.
 
 .. code-block:: bash
@@ -198,88 +198,15 @@ The CLI confirms success and prints the updated repository. If you only need to
 verify the change, re-run ``ud2 repository get`` after the update.
 
 
-Scenario 7: Check and Push a Release Manifest
-=============================================
-
-Use the release workflow to idempotently sync a collection of repository files
-with a version on an existing product. A release manifest bundles product
-reference, version, and repository entries in a single YAML file.
-
-1. Create a release manifest. You can use the authoring commands to build it
-   from scratch, or craft the YAML by hand.
-
-   **Authoring workflow (recommended):**
-
-   .. code-block:: bash
-
-      ud2 release init release.yaml --product-eng-id 4001 --product-name "Project Atlas" \\
-          --version 1.0 --architecture x86_64 --platform linux
-      ud2 release add release.yaml --file ./dist/atlas-1.0-ga.iso --desc "Atlas 1.0 GA ISO"
-      ud2 release add release.yaml --file ./dist/checksums.txt --desc "Checksums"
-
-   Use ``ud2 release edit release.yaml --file-name FILENAME --desc "New desc"`` to
-   modify an entry, or ``ud2 release remove release.yaml --file-name FILENAME``
-   to remove one. Use ``--dry-run`` to preview edit/remove without writing.
-
-   Or create the manifest by hand:
-
-   .. code-block:: yaml
-
-      product:
-        engId: 4001
-        name: "Project Atlas"
-
-      version:
-        version: "1.0"
-        architecture: x86_64
-        platform: linux
-        visibility: public
-
-      repositories:
-        - description: "Atlas 1.0 GA ISO"
-          fileName: atlas-1.0-ga.iso
-          fileSize: 734003200
-          sha256: "1f2d3c4b5a69788766554433221100ffeeddccbbaa99887766554433221100ff"
-          md5: "abc123def456"
-          issues: []
-          visibility: visible
-          classifier: []
-
-2. Check the manifest against the server without making changes:
-
-   .. code-block:: bash
-
-      ud2 release check release.yaml
-
-   This reports whether the product and version exist, and for each repository
-   whether it would be created or updated. It also surfaces errors such as
-   filename/sha256 mismatches (when the same title and filename would point to
-   different content).
-
-3. Push the release to apply changes:
-
-   .. code-block:: bash
-
-      ud2 release push release.yaml
-
-   This creates the version if missing, creates or updates repositories as
-   needed, and writes back IDs (``_sync``) into the manifest for faster
-   subsequent syncs. Use ``--force-filename`` to override the filename/sha256
-   safety check when intentionally replacing content under the same filename.
-   Use ``--upload`` to invoke file upload utilities (when implemented) before
-   pushing metadata.
-
-   See `design/RELEASE.md` in the source tree for the full release schema and
-   matching heuristics.
-
-
 Next Steps
 ==========
 
+* For manifest-based release workflows (check and push), see
+  :doc:`release_quickstart`.
 * Explore pagination flags (``--page`` / ``--limit``) on list commands for large
   result sets.
-* Switch to YAML output to integrate UD2 workflows with automation or CI
-  pipelines.
+* Switch to YAML output (``--yaml``) to integrate UD2 workflows with automation
+  or CI pipelines.
 * Use ``ud2 --help`` and command-specific ``--help`` flags to discover advanced
   options.
 

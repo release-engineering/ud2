@@ -19,6 +19,7 @@ release-engineering workflows against the Unified Downloads REST API.
    :caption: Guides
 
    guides/cli_quickstart
+   guides/release_quickstart
    guides/configuration_reference
 
 .. toctree::
