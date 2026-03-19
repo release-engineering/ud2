@@ -12,4 +12,5 @@ ud2.models.repository
       Repository
       RepositoryBase
       RepositoryCreate
+      RepositoryResult
    

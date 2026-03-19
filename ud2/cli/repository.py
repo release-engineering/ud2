@@ -12,7 +12,7 @@ from click import option, group
 
 from ..checksums import file_metadata
 from ..loader import pretty_yaml, load_yaml
-from ..models import Repository, RepositoryCreate
+from ..models import Repository, RepositoryCreate, RepositoryResult
 from .util import CLIState, merge_payload, catchall, tabulate, pass_state
 
 
@@ -36,6 +36,33 @@ def render_repositories(repositories: Sequence[Repository], yaml: bool) -> None:
             repository.product_version or "",
         )
         for repository in repositories
+    ]
+    tabulate(headers, rows)
+
+
+def render_repository_results(
+        repositories: Sequence[RepositoryResult],
+        yaml: bool) -> None:
+    """
+    Render repository search results according to the configured output mode.
+
+    Search results omit file_size, product_name, and product_version.
+    """
+
+    if yaml:
+        pretty_yaml(repositories)
+        return
+
+    headers = ("ID", "Description", "File Name", "Product ID", "Version ID")
+    rows = [
+        (
+            r.id,
+            r.description,
+            r.file_name,
+            r.product_id if r.product_id is not None else "",
+            r.product_version_id if r.product_version_id is not None else "",
+        )
+        for r in repositories
     ]
     tabulate(headers, rows)
 
@@ -462,7 +489,7 @@ def search_repositories(
         page=page,
         limit=limit,
     )
-    render_repositories(list(page_obj.data), state.yaml_output)
+    render_repository_results(list(page_obj.data), state.yaml_output)
 
 
 @repository.command(name="delete")

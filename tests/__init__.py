@@ -10,9 +10,10 @@ from typing import Any, Dict, Iterable, Optional
 from ud2.models.compat import BaseModel
 from ud2.models.enums import Architecture, Visibility
 from ud2.models.pagination import (PaginatedProducts, PaginatedRepositories,
+                                   PaginatedRepositoryResults,
                                    PaginatedVersions)
 from ud2.models.product import Product, ProductCreate
-from ud2.models.repository import Repository, RepositoryCreate
+from ud2.models.repository import Repository, RepositoryCreate, RepositoryResult
 from ud2.models.version import Version, VersionCreate
 
 __all__ = (
@@ -25,8 +26,10 @@ __all__ = (
     'make_version',
     'make_repository_create',
     'make_repository',
+    'make_repository_result',
     'make_paginated_products',
     'make_paginated_repositories',
+    'make_paginated_repository_results',
     'make_paginated_versions',
 )
 
@@ -150,6 +153,23 @@ def make_repository(**overrides: Any) -> Repository:
     return Repository.model_validate(base)
 
 
+def make_repository_result(**overrides: Any) -> RepositoryResult:
+    """
+    Construct a RepositoryResult instance for testing.
+    """
+
+    payload = {
+        'id': 1,
+        'description': 'Installer media',
+        'file_name': 'installer.iso',
+        'product_id': 17194,
+        'product_version_id': 95896,
+        'download_link': 'https://example.com/download/test',
+    }
+    payload.update(overrides)
+    return RepositoryResult.model_validate(payload)
+
+
 def make_paginated_products(
         products: Optional[Iterable[Product]] = None,
         **overrides: Any) -> PaginatedProducts:
@@ -186,6 +206,25 @@ def make_paginated_repositories(
     }
     payload.update(overrides)
     return PaginatedRepositories.model_validate(payload)
+
+
+def make_paginated_repository_results(
+        repositories: Optional[Iterable[RepositoryResult]] = None,
+        **overrides: Any) -> PaginatedRepositoryResults:
+    """
+    Construct a PaginatedRepositoryResults instance for testing.
+    """
+
+    repository_list = list(repositories) if repositories is not None else []
+    payload = {
+        'data': [dump_model(r) for r in repository_list],
+        'limit': overrides.pop('limit', max(len(repository_list), 1)),
+        'page': overrides.pop('page', 1),
+        'total': overrides.pop('total', len(repository_list)),
+        'total_pages': overrides.pop('total_pages', 1 if repository_list else 0),
+    }
+    payload.update(overrides)
+    return PaginatedRepositoryResults.model_validate(payload)
 
 
 def make_paginated_versions(

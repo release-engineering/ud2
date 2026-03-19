@@ -7,7 +7,7 @@ from typing import List
 
 from .compat import StrictModel
 from .product import Product
-from .repository import Repository
+from .repository import Repository, RepositoryResult
 from .version import Version
 
 
@@ -15,6 +15,7 @@ __all__ = (
     'Pagination',
     'PaginatedProducts',
     'PaginatedRepositories',
+    'PaginatedRepositoryResults',
     'PaginatedVersions',
     'ResponseVersions',
 )
@@ -62,6 +63,17 @@ class PaginatedRepositories(Pagination):
     """
 
     data: List[Repository]
+
+
+class PaginatedRepositoryResults(Pagination):
+    """
+    Paginated response containing repository search results.
+
+    Search results omit file_size, sha256, md5, issues, visibility, and
+    classifier compared to full Repository records.
+    """
+
+    data: List[RepositoryResult]
 
 
 # The end.

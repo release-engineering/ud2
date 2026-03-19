@@ -36,9 +36,9 @@ from pydantic import BaseModel
 
 from .config import UDConfig
 from .models import (PaginatedProducts, PaginatedRepositories,
-                     PaginatedVersions, Product, ProductCreate,
-                     Repository, RepositoryCreate, ResponseVersions,
-                     Version, VersionCreate)
+                     PaginatedRepositoryResults, PaginatedVersions,
+                     Product, ProductCreate, Repository, RepositoryCreate,
+                     ResponseVersions, Version, VersionCreate)
 
 
 logger = logging.getLogger('UDClient')
@@ -385,6 +385,7 @@ class UDClient:
             product_id=product_id,
             cpe=cpe,
         )
+
         return self._GET(
             '/product_versions/search',
             params=params,
@@ -553,7 +554,7 @@ class UDClient:
             content_type: Optional[str] = None,
             jboss_id: Optional[int] = None,
             page: Optional[int] = None,
-            limit: Optional[int] = None) -> PaginatedRepositories:
+            limit: Optional[int] = None) -> PaginatedRepositoryResults:
         """
         Search files by various metadata.
 
@@ -566,7 +567,7 @@ class UDClient:
         :param jboss_id: JBoss ID (exact match).
         :param page: Page number used for pagination.
         :param limit: Items per page for pagination.
-        :returns: Paginated repository (file) results.
+        :returns: Paginated repository (file) search results.
         """
 
         params = self._build_search_params(
@@ -580,10 +581,11 @@ class UDClient:
             content_type=content_type,
             jboss_id=jboss_id,
         )
+
         return self._GET(
             '/files/search',
             params=params,
-            model=PaginatedRepositories,
+            model=PaginatedRepositoryResults,
         )
 
 
@@ -670,6 +672,9 @@ class UDClient:
 
         if content_type.startswith('application/json'):
             data = response.json()
+
+            logger.debug(f'[DEBUG] {data}:')
+
             if unwrap_data and isinstance(data, dict) and 'data' in data:
                 data = data['data']
             if model:
@@ -683,6 +688,9 @@ def coerce_model(data: Any, model: Any) -> Any:
     """
     Convert JSON data into the requested model shape.
     """
+
+    if callable(model):
+        return model(**data)
 
     origin = get_origin(model)
     if origin in (list, List):

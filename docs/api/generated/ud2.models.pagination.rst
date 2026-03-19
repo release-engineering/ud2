@@ -10,6 +10,7 @@ ud2.models.pagination
    
       PaginatedProducts
       PaginatedRepositories
+      PaginatedRepositoryResults
       PaginatedVersions
       Pagination
       ResponseVersions

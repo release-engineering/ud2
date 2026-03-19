@@ -7,11 +7,12 @@ import unittest
 from datetime import datetime, timezone
 
 from ud2.models import (Architecture, FileIssue, PaginatedProducts,
-                        PaginatedRepositories, Product, ProductCreate,
-                        Repository, RepositoryCreate, VersionCreate, Visibility)
+                        PaginatedRepositories, PaginatedRepositoryResults,
+                        Product, ProductCreate, Repository, RepositoryCreate,
+                        RepositoryResult, VersionCreate, Visibility)
 
 from . import (DEFAULT_SHA256, dump_model, make_product, make_product_create,
-               make_repository)
+               make_repository, make_repository_result)
 
 
 class TestProductModels(unittest.TestCase):
@@ -166,6 +167,38 @@ class TestPaginationModels(unittest.TestCase):
         )
         self.assertIsInstance(page, PaginatedRepositories)
         self.assertIsInstance(page.data[0], Repository)
+
+    def test_repository_result_accepts_reduced_fields(self) -> None:
+        result = RepositoryResult.model_validate(
+            {
+                'id': 1,
+                'description': 'Installer',
+                'file_name': 'installer.iso',
+                'product_id': 17194,
+                'product_version_id': 95896,
+                'download_link': 'https://example.com/download',
+            },
+        )
+        self.assertIsInstance(result, RepositoryResult)
+        self.assertEqual(result.id, 1)
+        self.assertEqual(result.description, 'Installer')
+        self.assertEqual(result.file_name, 'installer.iso')
+        self.assertEqual(result.product_id, 17194)
+        self.assertEqual(result.product_version_id, 95896)
+
+    def test_paginated_repository_results_deserializes_data(self) -> None:
+        result = make_repository_result()
+        page = PaginatedRepositoryResults.model_validate(
+            {
+                'data': [dump_model(result)],
+                'limit': 5,
+                'page': 1,
+                'total': 1,
+                'total_pages': 1,
+            },
+        )
+        self.assertIsInstance(page, PaginatedRepositoryResults)
+        self.assertIsInstance(page.data[0], RepositoryResult)
 
 
 # The end.

@@ -170,4 +170,20 @@ class Repository(RepositoryBase):
             raise ValueError(f"Invalid ISO 8601 datetime: {value}") from exc
 
 
+class RepositoryResult(StrictModel):
+    """
+    Reduced repository representation returned by the file search API.
+
+    The search endpoint returns only id, product_id, product_version_id,
+    description, file_name, and download_link.
+    """
+
+    id: int
+    product_id: Optional[int] = Field(alias='productId', default=None)
+    product_version_id: Optional[int] = Field(alias='productVersionId', default=None)
+    description: str
+    file_name: str = Field(alias='fileName')
+    download_link: Optional[str] = Field(alias='downloadLink', default=None)
+
+
 # The end.

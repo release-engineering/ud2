@@ -8,12 +8,14 @@ import requests
 from ud2.client import UDClient
 from ud2.config import UDConfig
 from ud2.models import (PaginatedProducts, PaginatedRepositories,
-                        PaginatedVersions, Product, Repository, Version)
+                        PaginatedRepositoryResults, PaginatedVersions,
+                        Product, Repository, RepositoryResult, Version)
 
 from . import (DEFAULT_SHA256, dump_model, make_paginated_products,
-               make_paginated_repositories, make_paginated_versions,
-               make_product, make_product_create, make_repository,
-               make_repository_create, make_version, make_version_create)
+               make_paginated_repositories, make_paginated_repository_results,
+               make_paginated_versions, make_product, make_product_create,
+               make_repository, make_repository_create, make_repository_result,
+               make_version, make_version_create)
 
 
 class StubResponse:
@@ -529,9 +531,9 @@ class TestUDClient(unittest.TestCase):
             StubResponse(
                 headers={'Content-Type': 'application/json'},
                 json_data=dump_model(
-                    make_paginated_repositories(
+                    make_paginated_repository_results(
                         repositories=[
-                            make_repository(
+                            make_repository_result(
                                 id=1,
                                 description='Installer',
                             ),
@@ -551,7 +553,7 @@ class TestUDClient(unittest.TestCase):
             version_id=2,
         )
 
-        self.assertIsInstance(result, PaginatedRepositories)
+        self.assertIsInstance(result, PaginatedRepositoryResults)
         self.assertEqual(len(result.data), 1)
         self.assertEqual(result.data[0].description, 'Installer')
         self.assertEqual(len(session.requests), 1)
