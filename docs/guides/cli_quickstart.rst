@@ -26,140 +26,110 @@ readable results.
 Scenario 1: Create a Product
 ============================
 
-1. Draft a YAML payload describing the product. Save the file as
-   ``product.yaml``.
+Create the product using command-line switches:
 
-   .. code-block:: yaml
+.. code-block:: bash
 
-      eng_id: 4001
-      name: "Project Atlas"
-      arch: x86_64
-      category: "Platform"
-      product_code: atlas
-      product_group: "Atlas"
-      product_group_name: "Project Atlas"
+   ud2 product create --name "Project Atlas" --eng-id 4001 --arch x86_64 \
+     --category "Platform" --product-code atlas --product-group "Atlas" \
+     --product-group-name "Project Atlas"
 
-2. Create the product in UD2.
+The CLI prints the new product record. Take note of the ``Id`` field; you will
+reference it when creating versions. You can retrieve the product again at any
+time:
 
-   .. code-block:: bash
+.. code-block:: bash
 
-      ud2 product create --yaml-file product.yaml
+   ud2 product get 4001
 
-   The CLI prints the new product record. Take note of the ``Id`` field; you
-   will reference it when creating versions. You can retrieve the product again
-   at any time:
-
-   .. code-block:: bash
-
-      ud2 product get 4001
+Use ``--yaml-file`` if you prefer to load the payload from a file for complex
+or repeated configurations.
 
 
 Scenario 2: Add a Version
 =========================
 
-1. Capture the version payload in ``version.yaml``. The ``visibility`` value
-   accepts any server-supported enum (for example ``private`` or ``public``).
+Create the version using command-line switches, passing the product identifier
+reported earlier. The ``--visibility`` value accepts any server-supported enum
+(for example ``private`` or ``public``):
 
-   .. code-block:: yaml
+.. code-block:: bash
 
-      version: "1.0"
-      architecture: x86_64
-      cpe: "cpe:/o:example:atlas_os:1.0"
-      platform: "linux"
-      visibility: public
+   ud2 version create 4001 --version "1.0" --architecture x86_64 \
+     --cpe "cpe:/o:example:atlas_os:1.0" --platform "linux" --visibility public
 
-2. Create the version, passing the product identifier reported earlier.
+Record the returned version ``Id``; you will need it when associating files.
+You can list all versions for the product whenever you need to confirm IDs:
 
-   .. code-block:: bash
+.. code-block:: bash
 
-      ud2 version create 4001 --yaml-file version.yaml
+   ud2 version list 4001
 
-   Record the returned version ``Id``; you will need it when associating files.
-   You can list all versions for the product whenever you need to confirm IDs:
-
-   .. code-block:: bash
-
-      ud2 version list 4001
+Use ``--yaml-file`` if you prefer to load the payload from a file.
 
 
 Scenario 3: Attach Release Files
 ================================
 
 Files are represented as repositories in UD2. Create one repository entry per
-deliverable you intend to publish.
+deliverable you intend to publish. Use ``--file`` to reference the artifact on
+disk; the CLI derives ``fileName``, ``fileSize``, ``sha256``, and ``md5``
+automatically:
 
-1. Describe the file in ``repository.yaml``.
+.. code-block:: bash
 
-   .. code-block:: yaml
+   ud2 repository create 101 --file ./atlas-1.0-ga.iso \
+     --description "Atlas 1.0 GA ISO" --content-type DISTRIBUTION
 
-      description: "Atlas 1.0 GA ISO"
-      fileName: atlas-1.0-ga.iso
-      fileSize: 734003200
-      sha256: "1f2d3c4b5a69788766554433221100ffeeddccbbaa99887766554433221100ff"
-      contentTypes:
-        - DISTRIBUTION
-
-2. Attach the file to the version using its identifier.
-
-   .. code-block:: bash
-
-      ud2 repository create 101 --yaml-file repository.yaml
-
-   The output includes the repository ``Id``. Repeat the process with distinct
-   payload files to associate additional artifacts (for example debug symbols or
-   container images) with the same version.
-
-   Alternatively, use ``--file`` to reference the artifact on disk; the CLI will
-   derive ``fileName``, ``fileSize``, ``sha256``, and ``md5`` automatically:
-
-   .. code-block:: bash
-
-      ud2 repository create 101 --file ./atlas-1.0-ga.iso --description "Atlas 1.0 GA ISO"
+The output includes the repository ``Id``. Repeat with distinct artifacts to
+associate additional files (for example debug symbols or container images) with
+the same version. Use ``--yaml-file`` if you need to supply a full payload from
+a file.
 
 
 Scenario 4: Locate an Existing Version
 ======================================
 
 When you need to add files to an existing version or double-check its metadata,
-list the known versions and filter for the one you need.
+use search or list commands.
+
+To find a product by name or engineering ID:
+
+.. code-block:: bash
+
+   ud2 product search --name "Atlas"
+   ud2 product search --eng-id 4001
+
+To search for a specific version across products or filter by criteria:
+
+.. code-block:: bash
+
+   ud2 version search --product-id 4001 --version "1.0"
+
+To list all versions for a product you already know:
 
 .. code-block:: bash
 
    ud2 version list 4001
 
-Add ``--yaml`` to pipe the structured data through tools such as ``yq``
-or ``jq`` if you prefer automated filtering:
-
-.. code-block:: bash
-
-   ud2 version list 4001 --yaml | yq '.[] | select(.version == "1.0")'
-
-The friendly output also includes the version ``Id``, which you will use in the
-next scenario when adding more files.
+Add ``--yaml`` to pipe the structured data through tools such as ``yq`` or
+``jq`` for automated filtering. The output includes the version ``Id``, which
+you will use when adding more files.
 
 
 Scenario 5: Add More Files to a Version
 =======================================
 
-After locating the version identifier, prepare another repository payload (for
-example ``repository-debug.yaml``) describing the additional file.
-
-.. code-block:: yaml
-
-   description: "Atlas 1.0 Debug Symbols"
-   fileName: atlas-1.0-debug.tar.gz
-   fileSize: 189792256
-   sha256: "ffeeddccbbaa0099887766554433221100ffeeddccbbaa009988776655443322"
-
-Use the same ``ud2 repository create`` command, passing the version identifier
-and the new YAML file.
+After locating the version identifier, add another file using ``--file`` and
+``--description``:
 
 .. code-block:: bash
 
-   ud2 repository create 101 --yaml-file repository-debug.yaml
+   ud2 repository create 101 --file ./atlas-1.0-debug.tar.gz \
+     --description "Atlas 1.0 Debug Symbols" --content-type DISTRIBUTION
 
 You can confirm the inventory of files attached to a version by listing the
-repositories. Pagination options are available for large sets.
+repositories. Pagination options are available for large sets:
 
 .. code-block:: bash
 
@@ -169,33 +139,16 @@ repositories. Pagination options are available for large sets.
 Scenario 6: Fix a Typographical Error in a File Title
 =====================================================
 
-Suppose a repository description contains a typo and needs an update. Retrieve
-the current record, write a corrected payload, and submit it with ``update``.
+Suppose a repository description contains a typo and needs an update. Apply the
+correction using ``--desc``. The update command fetches the existing record and
+merges only the changed field(s):
 
-1. Fetch the repository to get its ``Id`` and current fields.
+.. code-block:: bash
 
-   .. code-block:: bash
+   ud2 repository update 205 --desc "Atlas 1.0 Debug Symbols"
 
-      ud2 repository get 205
-
-2. Copy the output into ``repository-corrected.yaml`` and adjust the fields that
-   need fixing. For example, correcting the description spelling:
-
-   .. code-block:: yaml
-
-      description: "Atlas 1.0 Debug Symbols"
-      fileName: atlas-1.0-debug.tar.gz
-      fileSize: 189792256
-      sha256: "ffeeddccbbaa0099887766554433221100ffeeddccbbaa009988776655443322"
-
-3. Apply the update with the version and repository identifiers.
-
-   .. code-block:: bash
-
-      ud2 repository update 205 --yaml-file repository-corrected.yaml
-
-The CLI confirms success and prints the updated repository. If you only need to
-verify the change, re-run ``ud2 repository get`` after the update.
+The CLI confirms success and prints the updated repository. To verify the
+change, re-run ``ud2 repository get 205``.
 
 
 Next Steps
@@ -209,5 +162,13 @@ Next Steps
   or CI pipelines.
 * Use ``ud2 --help`` and command-specific ``--help`` flags to discover advanced
   options.
+
+Using YAML Files
+================
+
+All create and update commands support ``--yaml-file`` for loading payloads from
+a file. Use this when you prefer file-based workflows, need complex payloads, or
+want to reuse configurations. See :doc:`configuration_reference` for connection
+and environment setup.
 
 .. The end.
