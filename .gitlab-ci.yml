@@ -8,6 +8,8 @@ pages:
   image: python:3.11
   stage: deploy
   when: manual
+  tags:
+    - shared-podman
   script:
     - pip install tox
     - tox -qe py-cover
