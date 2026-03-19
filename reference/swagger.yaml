@@ -133,6 +133,9 @@ definitions:
         type: string
       update_date:
         type: string
+      download_link:
+        description: Computed URL for file download (returned via get only).
+        type: string
       visibility:
         example: visible
         type: string

@@ -244,6 +244,31 @@ After a successful push:
 
 ## CLI Commands
 
+### Authoring Commands (manifest on disk only)
+
+The following commands create and modify the release manifest YAML on disk
+without API calls. They enable compose-style interactive authoring before push.
+
+- **ud2 release init RELEASEFILE** — Create a new manifest. Requires
+  `--product-id` or both `--product-eng-id` and `--product-name`; requires
+  `--version`. Optional: `--architecture`, `--platform`, `--visibility`,
+  `--cpe`. Use `--force` to overwrite an existing file.
+
+- **ud2 release add RELEASEFILE** — Add a repository entry. Either use
+  `--file PATH` with `--desc` (computes sha256, md5, file_size, file_name from
+  the artifact), or provide all of `--desc`, `--file-name`, `--file-size`,
+  `--sha256`, `--md5`. Optional: `--visibility`, `--content-type`, `--issues`,
+  `--classifier`, `--installation`, `--long-desc`. Use `--no-path` to omit the
+  path field when using `--file`.
+
+- **ud2 release edit RELEASEFILE** — Edit an existing entry. Identify it with
+  `--file-name FILENAME` or `--by-index N`. Override any fields (`--desc`,
+  `--file`, `--visibility`, etc.). Use `--dry-run` to preview without writing.
+
+- **ud2 release remove RELEASEFILE** — Remove an entry. Identify with
+  `--file-name` or `--by-index`. Use `--dry-run` to preview.
+
+
 ### ud2 release check RELEASEFILE
 
 **Synopsis:** `ud2 release check RELEASEFILE [OPTIONS]`

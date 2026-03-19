@@ -205,7 +205,23 @@ Use the release workflow to idempotently sync a collection of repository files
 with a version on an existing product. A release manifest bundles product
 reference, version, and repository entries in a single YAML file.
 
-1. Create a release manifest, for example ``release.yaml``:
+1. Create a release manifest. You can use the authoring commands to build it
+   from scratch, or craft the YAML by hand.
+
+   **Authoring workflow (recommended):**
+
+   .. code-block:: bash
+
+      ud2 release init release.yaml --product-eng-id 4001 --product-name "Project Atlas" \\
+          --version 1.0 --architecture x86_64 --platform linux
+      ud2 release add release.yaml --file ./dist/atlas-1.0-ga.iso --desc "Atlas 1.0 GA ISO"
+      ud2 release add release.yaml --file ./dist/checksums.txt --desc "Checksums"
+
+   Use ``ud2 release edit release.yaml --file-name FILENAME --desc "New desc"`` to
+   modify an entry, or ``ud2 release remove release.yaml --file-name FILENAME``
+   to remove one. Use ``--dry-run`` to preview edit/remove without writing.
+
+   Or create the manifest by hand:
 
    .. code-block:: yaml
 

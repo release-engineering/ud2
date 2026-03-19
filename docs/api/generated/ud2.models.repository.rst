@@ -1,4 +1,4 @@
-ud2.models.repository
+﻿ud2.models.repository
 =====================
 
 .. automodule:: ud2.models.repository
@@ -8,6 +8,7 @@ ud2.models.repository
 
    .. autosummary::
    
+      FileIssue
       Repository
       RepositoryBase
       RepositoryCreate

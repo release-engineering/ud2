@@ -124,6 +124,7 @@ class Repository(RepositoryBase):
     :param product_version: Optional product version string.
     :param publish_date: Optional publication date.
     :param update_date: Optional update date.
+    :param download_link: Computed URL for file download (returned via get only).
     """
 
     id: int
@@ -131,6 +132,7 @@ class Repository(RepositoryBase):
     product_version: Optional[str] = Field(alias='productVersion', default=None)
     publish_date: Optional[datetime] = Field(alias='publishDate', default=None)
     update_date: Optional[datetime] = Field(alias='updateDate', default=None)
+    download_link: Optional[str] = Field(alias='downloadLink', default=None)
 
     @field_validator('publish_date', 'update_date', mode='before')
     def _parse_datetime(cls, value: Optional[str]) -> Optional[datetime]:

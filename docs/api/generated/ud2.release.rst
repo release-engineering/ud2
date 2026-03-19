@@ -1,4 +1,4 @@
-﻿ud2.release
+ud2.release
 ===========
 
 .. automodule:: ud2.release

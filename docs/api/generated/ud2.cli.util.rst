@@ -1,4 +1,4 @@
-ud2.cli.util
+﻿ud2.cli.util
 ============
 
 .. automodule:: ud2.cli.util
@@ -10,6 +10,7 @@ ud2.cli.util
    
       build_cli_state
       catchall
+      merge_payload
       pass_state
       tabulate
    

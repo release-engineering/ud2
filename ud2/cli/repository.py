@@ -56,6 +56,8 @@ def render_repository(repository: Repository, yaml: bool) -> None:
     echo(f"  File Size: {repository.file_size}")
     echo(f"  SHA256: {repository.sha256}")
     echo(f"  Content Types: {', '.join(repository.content_types)}")
+    if repository.download_link:
+        echo(f"  Download: {repository.download_link}")
     echo(f"  Published: {repository.publish_date.isoformat() if repository.publish_date else ''}")
     echo(f"  Updated: {repository.update_date.isoformat() if repository.update_date else ''}")
 

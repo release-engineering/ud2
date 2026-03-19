@@ -1,4 +1,4 @@
-ud2
+﻿ud2
 ===
 
 .. automodule:: ud2
@@ -10,6 +10,7 @@ ud2
    :toctree:
    :recursive:
 
+   checksums
    cli
    client
    config

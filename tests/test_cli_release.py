@@ -14,6 +14,270 @@ from ud2.client import UDClient
 from ud2.config import UDConfig
 
 
+def _make_state():
+    return CLIState(
+        config=mock.Mock(spec=UDConfig),
+        client=mock.Mock(spec=UDClient),
+        yaml_output=False,
+        debug=False,
+    )
+
+
+class TestReleaseInitCli(unittest.TestCase):
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_init_creates_manifest_with_product_id(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            result = runner.invoke(
+                cli_main,
+                ['release', 'init', 'release.yaml', '--product-id', '123',
+                 '--version', '1.0.0'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn('Created', result.output)
+            self.assertTrue(Path('release.yaml').exists())
+            content = Path('release.yaml').read_text()
+            self.assertIn('id: 123', content)
+            self.assertIn('version: 1.0.0', content)
+            self.assertIn('repositories: []', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_init_creates_manifest_with_eng_id_and_name(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            result = runner.invoke(
+                cli_main,
+                ['release', 'init', 'r.yaml', '--product-eng-id', '4001',
+                 '--product-name', 'Atlas', '--version', '1.0',
+                 '--architecture', 'x86_64', '--platform', 'linux'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = Path('r.yaml').read_text()
+            self.assertIn('engId: 4001', content)
+            self.assertIn('name: Atlas', content)
+            self.assertIn('architecture: x86_64', content)
+            self.assertIn('platform: linux', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_init_fails_if_file_exists_without_force(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            Path('existing.yaml').write_text('product:\n  id: 1\n')
+            result = runner.invoke(
+                cli_main,
+                ['release', 'init', 'existing.yaml', '--product-id', '1',
+                 '--version', '1.0'],
+            )
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn('exists', result.output)
+            self.assertIn('--force', result.output)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_init_force_overwrites(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            Path('r.yaml').write_text('product:\n  id: 1\n')
+            result = runner.invoke(
+                cli_main,
+                ['release', 'init', 'r.yaml', '--product-id', '999',
+                 '--version', '2.0', '--force'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = Path('r.yaml').read_text()
+            self.assertIn('id: 999', content)
+            self.assertIn('2.0', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_init_requires_product_spec(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        result = runner.invoke(
+            cli_main,
+            ['release', 'init', 'r.yaml', '--version', '1.0'],
+        )
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn('product-id', result.output)
+
+
+class TestReleaseAddCli(unittest.TestCase):
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_add_with_file_computes_checksums(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(cli_main, ['release', 'init', 'r.yaml',
+                        '--product-id', '1', '--version', '1.0'])
+            Path('artifact.bin').write_bytes(b'hello')
+            result = runner.invoke(
+                cli_main,
+                ['release', 'add', 'r.yaml', '--file', 'artifact.bin',
+                 '--desc', 'Test artifact'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn('Added', result.output)
+            content = Path('r.yaml').read_text()
+            self.assertIn('description: Test artifact', content)
+            self.assertIn('fileName: artifact.bin', content)
+            self.assertIn('fileSize: 5', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_add_with_explicit_metadata(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(cli_main, ['release', 'init', 'r.yaml',
+                        '--product-id', '1', '--version', '1.0'])
+            sha = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'
+            md5 = '5d41402abc4b2a76b9719d911017c592'
+            result = runner.invoke(
+                cli_main,
+                ['release', 'add', 'r.yaml', '--desc', 'Manual entry',
+                 '--file-name', 'm.bin', '--file-size', '5',
+                 '--sha256', sha, '--md5', md5],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = Path('r.yaml').read_text()
+            self.assertIn('description: Manual entry', content)
+            self.assertIn('fileName: m.bin', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_add_requires_desc_with_file(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(cli_main, ['release', 'init', 'r.yaml',
+                        '--product-id', '1', '--version', '1.0'])
+            Path('a.bin').write_bytes(b'x')
+            result = runner.invoke(
+                cli_main,
+                ['release', 'add', 'r.yaml', '--file', 'a.bin'],
+            )
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn('--desc', result.output)
+
+
+class TestReleaseEditCli(unittest.TestCase):
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_edit_by_file_name(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(cli_main, ['release', 'init', 'r.yaml',
+                        '--product-id', '1', '--version', '1.0'])
+            Path('a.bin').write_bytes(b'x')
+            runner.invoke(cli_main, ['release', 'add', 'r.yaml',
+                        '--file', 'a.bin', '--desc', 'Original'])
+            result = runner.invoke(
+                cli_main,
+                ['release', 'edit', 'r.yaml', '--file-name', 'a.bin',
+                 '--desc', 'Updated'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = Path('r.yaml').read_text()
+            self.assertIn('description: Updated', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_edit_by_index(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(cli_main, ['release', 'init', 'r.yaml',
+                        '--product-id', '1', '--version', '1.0'])
+            Path('a.bin').write_bytes(b'x')
+            runner.invoke(cli_main, ['release', 'add', 'r.yaml',
+                        '--file', 'a.bin', '--desc', 'First'])
+            result = runner.invoke(
+                cli_main,
+                ['release', 'edit', 'r.yaml', '--by-index', '0',
+                 '--desc', 'Edited'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = Path('r.yaml').read_text()
+            self.assertIn('description: Edited', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_edit_dry_run_skips_write(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(cli_main, ['release', 'init', 'r.yaml',
+                        '--product-id', '1', '--version', '1.0'])
+            Path('a.bin').write_bytes(b'x')
+            runner.invoke(cli_main, ['release', 'add', 'r.yaml',
+                        '--file', 'a.bin', '--desc', 'Original'])
+            result = runner.invoke(
+                cli_main,
+                ['release', 'edit', 'r.yaml', '--file-name', 'a.bin',
+                 '--desc', 'Would change', '--dry-run'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = Path('r.yaml').read_text()
+            self.assertIn('description: Original', content)
+            self.assertNotIn('Would change', content)
+
+
+class TestReleaseRemoveCli(unittest.TestCase):
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_remove_by_file_name(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(cli_main, ['release', 'init', 'r.yaml',
+                        '--product-id', '1', '--version', '1.0'])
+            Path('a.bin').write_bytes(b'x')
+            runner.invoke(cli_main, ['release', 'add', 'r.yaml',
+                        '--file', 'a.bin', '--desc', 'To remove'])
+            result = runner.invoke(
+                cli_main,
+                ['release', 'remove', 'r.yaml', '--file-name', 'a.bin'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = Path('r.yaml').read_text()
+            self.assertIn('repositories: []', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_remove_by_index(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(cli_main, ['release', 'init', 'r.yaml',
+                        '--product-id', '1', '--version', '1.0'])
+            Path('a.bin').write_bytes(b'x')
+            runner.invoke(cli_main, ['release', 'add', 'r.yaml',
+                        '--file', 'a.bin', '--desc', 'To remove'])
+            result = runner.invoke(
+                cli_main,
+                ['release', 'remove', 'r.yaml', '--by-index', '0'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = Path('r.yaml').read_text()
+            self.assertIn('repositories: []', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_remove_dry_run_skips_write(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(cli_main, ['release', 'init', 'r.yaml',
+                        '--product-id', '1', '--version', '1.0'])
+            Path('a.bin').write_bytes(b'x')
+            runner.invoke(cli_main, ['release', 'add', 'r.yaml',
+                        '--file', 'a.bin', '--desc', 'To remove'])
+            result = runner.invoke(
+                cli_main,
+                ['release', 'remove', 'r.yaml', '--file-name', 'a.bin',
+                 '--dry-run'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn('Would remove', result.output)
+            content = Path('r.yaml').read_text()
+            self.assertIn('To remove', content)
+
+
 class TestReleaseCheckCli(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()

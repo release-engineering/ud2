@@ -35,6 +35,7 @@ with `--config` and select profiles with `--env`.
 - Add a version: `ud2 version create <product-id> --yaml-file version.yaml` or `ud2 version create <product-id> --version 1.0`
 - Attach release files: `ud2 repository create <version-id> --yaml-file repo.yaml` or `ud2 repository create <version-id> --file ./artifact.iso --description "Title"`
 - Check or push a full release: `ud2 release check release.yaml`, `ud2 release push release.yaml`
+- Build a release manifest from scratch: `ud2 release init release.yaml --product-id 1 --version 1.0`, then `ud2 release add release.yaml --file ./artifact.iso --desc "Title"` (use `edit` and `remove` to modify)
 
 See `docs/cli_quickstart.rst` for detailed, copy/paste friendly walkthroughs and
 `docs/configuration_reference.rst` for configuration file guidance.

@@ -34,7 +34,7 @@ class TestCliRegistration(unittest.TestCase):
         self.assertIn("release", commands)
         release_cmd = cli_main.get_command(None, "release")
         subcommands = release_cmd.list_commands(None)
-        for expected in ("check", "push"):
+        for expected in ("check", "push", "init", "add", "edit", "remove"):
             self.assertIn(expected, subcommands)
 
 

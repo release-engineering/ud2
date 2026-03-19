@@ -2,12 +2,15 @@
 Release push/sync logic: resolve, ensure, check, and apply.
 """
 
+import yaml
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
 from .client import UDClient
+from .loader import load_yaml, PrettyYAML
 from .models import (Product, ProductRef, Release, ReleaseSyncMetadata,
                      Repository, RepositoryCreate, RepositoryEntry,
                      Version, VersionCreate, VersionRef)
@@ -428,6 +431,36 @@ def apply_release(
         _write_sync_metadata(manifest_path, sync_meta)
 
     return result
+
+
+def load_release_manifest(path: Path) -> Release:
+    """
+    Load and validate release manifest from path.
+
+    :param path: Path to release manifest YAML.
+    :returns: Validated Release model.
+    """
+
+    return load_yaml(str(path), model=Release)
+
+
+def write_release_manifest(path: Path, release: Release) -> None:
+    """
+    Write release manifest to path.
+
+    :param path: Path to write manifest.
+    :param release: Release model to serialize.
+    """
+
+    data = release.model_dump(by_alias=True, exclude_none=True)
+    with Path(path).open('w', encoding='utf-8') as f:
+        yaml.dump(
+            data,
+            f,
+            Dumper=PrettyYAML,
+            default_flow_style=False,
+            sort_keys=False,
+        )
 
 
 def _write_sync_metadata(path: str, sync_meta: ReleaseSyncMetadata) -> None:
