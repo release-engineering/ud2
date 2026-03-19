@@ -1,0 +1,23 @@
+# GitLab CI for ud2 docs build and GitLab Pages deployment.
+# The pages job is manually triggered from the pipeline UI.
+
+stages:
+  - deploy
+
+pages:
+  image: python:3.11
+  stage: deploy
+  when: manual
+  script:
+    - pip install tox
+    - tox -qe py-cover
+    - tox -qe compat-cover
+    - tox -qe coverage-report
+    - tox -qe docs
+    - mv build/docs public
+
+  artifacts:
+    paths:
+      - public
+
+# The end.

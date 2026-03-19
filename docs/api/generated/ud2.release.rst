@@ -1,4 +1,4 @@
-ud2.release
+﻿ud2.release
 ===========
 
 .. automodule:: ud2.release
@@ -13,9 +13,11 @@ ud2.release
       ensure_repository
       ensure_version
       entry_to_repository_create
+      load_release_manifest
       resolve_product
       resolve_repository
       resolve_version
+      write_release_manifest
    
    .. rubric:: Classes
 
