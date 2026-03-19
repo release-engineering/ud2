@@ -1,4 +1,4 @@
-﻿ud2.models.release
+ud2.models.release
 ==================
 
 .. automodule:: ud2.models.release

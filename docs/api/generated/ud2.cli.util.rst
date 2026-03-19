@@ -1,4 +1,4 @@
-﻿ud2.cli.util
+ud2.cli.util
 ============
 
 .. automodule:: ud2.cli.util

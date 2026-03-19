@@ -1,4 +1,4 @@
-﻿ud2.models.pagination
+ud2.models.pagination
 =====================
 
 .. automodule:: ud2.models.pagination

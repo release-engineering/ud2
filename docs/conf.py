@@ -2,7 +2,6 @@
 Sphinx configuration for the ud2 documentation.
 """
 
-import importlib
 from pathlib import Path
 
 

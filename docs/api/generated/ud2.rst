@@ -2,6 +2,7 @@
 ===
 
 .. automodule:: ud2
+   :exclude-members: Product, ProductCreate, Repository, RepositoryCreate, Version, VersionCreate
 
    
 .. rubric:: Modules
