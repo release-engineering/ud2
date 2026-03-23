@@ -37,6 +37,19 @@ def resolve_release_path(path: Path) -> Path:
     return path
 
 
+def resolve_release_path_for_init(path: Path) -> Path:
+    """
+    Resolve manifest path for init. If path is a directory or has no .yml/.yaml
+    extension, use path/ud-release.yml.
+    """
+
+    if path.is_dir():
+        return path / 'ud-release.yml'
+    if path.suffix.lower() in ('.yml', '.yaml'):
+        return path
+    return path / 'ud-release.yml'
+
+
 def _split_comma(s: Optional[str]) -> List[str]:
     """Split comma-separated string into list, stripping whitespace."""
 
@@ -162,11 +175,12 @@ def init(
             "Specify --product-id or both --product-eng-id and --product-name.",
         )
 
-    path = Path(releasefile)
+    path = resolve_release_path_for_init(Path(releasefile))
     if path.exists() and not force:
         raise ClickException(
             f"File exists: {path}. Use --force to overwrite.",
         )
+    path.parent.mkdir(parents=True, exist_ok=True)
 
     if has_id:
         product_ref = ProductRef(id=product_id)
