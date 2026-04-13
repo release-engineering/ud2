@@ -7,18 +7,16 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import click
-from click import ClickException, Path as ClickPath, argument, echo, group, option
+from click import ClickException
+from click import Path as ClickPath
+from click import argument, echo, group, option
 
 from ..checksums import file_metadata
 from ..loader import load_yaml, pretty_yaml
 from ..models import ProductRef, Release, RepositoryEntry, VersionRef
-from ..release import (
-    ReleaseError,
-    apply_release,
-    check_release,
-    load_release_manifest,
-    write_release_manifest,
-)
+from ..models.enums import ContentType
+from ..release import (ReleaseError, apply_release, check_release,
+                       load_release_manifest, write_release_manifest)
 from .util import CLIState, catchall, merge_payload, pass_state
 
 
@@ -220,6 +218,7 @@ def init(
 @option("--md5", type=str, help="MD5 checksum (explicit mode).")
 @option("--visibility", type=str, default='visible', help="Visibility.")
 @option("--content-type", "content_type", type=str, multiple=True,
+        default=[ContentType.DISTRIBUTION.value],
         help="Content type (repeatable).")
 @option("--issues", type=str, help="Comma-separated issue IDs.")
 @option("--classifier", type=str, help="Comma-separated classifier values.")
@@ -243,7 +242,7 @@ def add(
         sha256: Optional[str],
         md5: Optional[str],
         visibility: Optional[str],
-        content_type: tuple,
+        content_type: List[str],
         issues: Optional[str],
         classifier: Optional[str],
         installation: Optional[str],

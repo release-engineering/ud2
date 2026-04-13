@@ -7,13 +7,15 @@ from io import StringIO
 from pathlib import Path
 from typing import List, Optional, Sequence
 
-from click import Choice, ClickException, Path as ClickPath, argument, echo
-from click import option, group
+from click import Choice, ClickException
+from click import Path as ClickPath
+from click import argument, echo, group, option
 
 from ..checksums import file_metadata
-from ..loader import pretty_yaml, load_yaml
+from ..loader import load_yaml, pretty_yaml
 from ..models import Repository, RepositoryCreate, RepositoryResult
-from .util import CLIState, merge_payload, catchall, tabulate, pass_state
+from ..models.enums import ContentType
+from .util import CLIState, catchall, merge_payload, pass_state, tabulate
 
 
 def render_repositories(repositories: Sequence[Repository], yaml: bool) -> None:
@@ -199,6 +201,7 @@ def _normalize_repository_payload(data: dict) -> dict:
 @option("--desc", "description", type=str, help="Short description (title).")
 @option("--visibility", type=str, default='visible', help="Visibility.")
 @option("--content-type", "content_type", type=str, multiple=True,
+        default=[ContentType.DISTRIBUTION.value],
         help="Content type (repeatable).")
 @option("--issues", type=str, help="Comma-separated issue IDs (e.g. TUSC-1234,TUSC-5678).")
 @option("--classifier", type=str, help="Comma-separated classifier values.")

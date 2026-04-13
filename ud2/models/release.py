@@ -2,10 +2,9 @@
 Pydantic models for the Release manifest.
 """
 
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from .compat import Field, StrictModel, field_validator
-from .enums import ContentType, coerce_enum
 from .repository import SHA256_LENGTH
 
 
@@ -47,7 +46,7 @@ class RepositoryEntry(StrictModel):
     issues: List[str] = Field(default_factory=list)
     visibility: str
     classifier: List[str] = Field(default_factory=list)
-    content_types: List[Union[ContentType, str]] = Field(
+    content_types: List[str] = Field(
         default_factory=list,
         alias='contentTypes',
     )
@@ -57,16 +56,9 @@ class RepositoryEntry(StrictModel):
 
     @field_validator('file_size')
     def _validate_file_size(cls, value: int) -> int:
-        if value <= 0:
-            raise ValueError('file_size must be greater than zero')
+        if value < 0:
+            raise ValueError('file_size must be greater than or equal to zero')
         return value
-
-    @field_validator('content_types', mode='before')
-    def _coerce_content_types(cls, value: Optional[List]) -> List:
-        if not isinstance(value, list):
-            raise ValueError("content_types must be a list")
-
-        return [coerce_enum(ContentType, item) for item in value]
 
     @field_validator('sha256', mode='before')
     def _normalize_sha256(cls, value: Optional[str]) -> str:
