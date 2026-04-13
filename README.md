@@ -37,8 +37,8 @@ with `--config` and select profiles with `--env`.
 - Check or push a full release: `ud2 release check release.yaml`, `ud2 release push release.yaml`
 - Build a release manifest from scratch: `ud2 release init release.yaml --product-id 1 --version 1.0`, then `ud2 release add release.yaml --file ./artifact.iso --desc "Title"` (use `edit` and `remove` to modify)
 
-See `docs/cli_quickstart.rst` for detailed, copy/paste friendly walkthroughs and
-`docs/configuration_reference.rst` for configuration file guidance.
+See `docs/guides/cli_quickstart.rst` for detailed, copy/paste friendly walkthroughs and
+`docs/guides/configuration_reference.rst` for configuration file guidance.
 
 For programmatic access, build a client from configuration:
 
@@ -68,8 +68,8 @@ the standard library style.
 
 ## Documentation
 
-- CLI quickstart scenarios: `docs/cli_quickstart.rst`
-- Configuration reference: `docs/configuration_reference.rst`
+- CLI quickstart scenarios: `docs/guides/cli_quickstart.rst`
+- Configuration reference: `docs/guides/configuration_reference.rst`
 - Auto-generated API reference (Swagger): `reference/swagger.yaml`
 
 Sphinx documentation will be added under `docs/` in a future milestone.

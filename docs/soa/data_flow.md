@@ -1,6 +1,6 @@
 # UD2 Data Flow (List Products)
 
-This diagram captures the `ud2 products list` command, which exercises configuration resolution, CLI parsing, `UDClient` pagination helpers, HTTPS transport, and model validation.
+This diagram captures the `ud2 product list` command, which exercises configuration resolution, CLI parsing, `UDClient` pagination helpers, HTTPS transport, and model validation.
 
 ```{mermaid}
 sequenceDiagram
@@ -10,13 +10,13 @@ sequenceDiagram
     participant ["Client as UDClient<br/>requests.Session"]
     participant [API as Unified Downloads API]
 
-    User->>CLI: Run `ud2 products list`
+    User->>CLI: Run `ud2 product list`
     CLI->>CFG: Load profile config<br/>paths, certs, base_url, timeout
     CFG-->>CLI: UDConfig object
     CLI->>Client: Instantiate with UDConfig<br/>set mTLS certs, headers, timeout
     CLI->>Client: call `iter_products(limit=None)`
     loop Paginated fetch
-        Client->>API: HTTPS GET /products?page=N<br/>with certificates
+        Client->>API: HTTPS GET /products?page=N&sort=asc<br/>with certificates
         API-->>Client: JSON payload<br/>{ page, data, total_pages, ... }
         Client->>Client: Validate with `PaginatedProducts`
         Client-->>CLI: `Product` model instances
@@ -26,6 +26,7 @@ sequenceDiagram
 
 ## Notes
 
+- List requests use explicit `sort=asc` by default (resource ID ascending); callers may pass `sort=desc` via the CLI `--sort` option where supported.
 - Authentication: Mutual TLS using user-supplied client certificate and key; optional CA bundle overrides.
 - Validation: Responses parsed through Pydantic models in `ud2.models.product` and `ud2.models.pagination`.
 - Error pathways:

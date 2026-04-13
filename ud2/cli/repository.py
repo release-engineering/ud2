@@ -115,7 +115,7 @@ def repository() -> None:
 @option("--page", type=int, help="Page number used for pagination.")
 @option("--limit", type=int, help="Items per page for pagination.")
 @option("--sort", type=Choice(("asc", "desc"), case_sensitive=False),
-        help="Sort order applied to results.")
+        help="Sort by resource ID: asc (default) or desc.")
 @pass_state
 @catchall
 def list_repositories(

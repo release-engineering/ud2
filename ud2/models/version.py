@@ -17,6 +17,7 @@ class VersionBase(StrictModel):
     """
 
     version: str
+    sort_version: Optional[str] = None
     architecture: Optional[ArchitectureValue] = None
     cpe: Optional[str] = None
     platform: Optional[str] = None
@@ -36,6 +37,7 @@ class VersionCreate(VersionBase):
     Capture the payload for creating a product version.
 
     :param version: Version string (for example, '8.5').
+    :param sort_version: Optional string for API ordering (for example, '8.5.0').
     :param architecture: Optional architecture string.
     :param cpe: Optional Common Platform Enumeration value.
     :param platform: Optional platform descriptor.
@@ -52,6 +54,7 @@ class Version(VersionBase):
     :param id: Database identifier.
     :param product_id: Owning product identifier.
     :param version: Version string (for example, '8.5').
+    :param sort_version: Optional string the API uses for ordering.
     :param architecture: Optional architecture string.
     :param cpe: Optional Common Platform Enumeration value.
     :param platform: Optional platform descriptor.

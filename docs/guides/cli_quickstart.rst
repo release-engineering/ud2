@@ -18,6 +18,21 @@ Prerequisites
   override the defaults.
 * You can reach the Unified Downloads API from the machine running the CLI.
 
+
+List output ordering
+====================
+
+``ud2 product list``, ``ud2 version list <product-id>``, and
+``ud2 repository list <version-id>`` show rows in ascending resource ID order by
+default. ``product list`` and ``repository list`` accept ``--sort asc`` (the
+default) or ``--sort desc`` to request the corresponding order from the API.
+``version list`` has no ``--sort`` option; the CLI sorts versions by ID after
+the response is returned. That behavior is separate from the optional
+``sort_version`` field on a product version resource (set with ``--sort-version``
+on ``version create`` or ``version update``), which the API uses for version
+ordering rules.
+
+
 All examples below use the default "friendly" output, which renders tabular data
 for easy scanning. Switch to YAML with ``--yaml`` if you prefer machine
 readable results.
@@ -57,6 +72,10 @@ reported earlier. The ``--visibility`` value accepts any server-supported enum
 
    ud2 version create 4001 --version "1.0" --architecture x86_64 \
      --cpe "cpe:/o:example:atlas_os:1.0" --platform "linux" --visibility public
+
+Add ``--sort-version`` when the API should use a dedicated string for ordering
+(for example ``8.5.0``) alongside the display ``--version`` string. Use
+``ud2 version update <version-id> --sort-version ...`` to change it later.
 
 Record the returned version ``Id``; you will need it when associating files.
 You can list all versions for the product whenever you need to confirm IDs:

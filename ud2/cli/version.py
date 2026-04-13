@@ -49,12 +49,14 @@ def render_version(version: Version, yaml: bool) -> None:
         pretty_yaml(version)
         return
 
-    echo(f"Version: {version.version} [ID: {version.id}]")
+    echo(f"Version: '{version.version}' [ID: {version.id}]")
     echo(f"  Product ID: {version.product_id}")
     echo(f"  CPE: {version.cpe}")
     echo(f"  Architecture: {version.architecture}")
     echo(f"  Platform: {version.platform}")
     echo(f"  Visibility: {version.visibility}")
+    if version.sort_version:
+        echo(f"  Sort As: '{version.sort_version}'")
 
 
 @group(name="version", help="Product version operations.")
@@ -99,6 +101,7 @@ def get_version(
 @option("--yaml-file", "yaml_path", type=Path,
         help="Path to a YAML file describing the product version payload.")
 @option("--version", "version_str", type=str, help="Version string (e.g. 8.5).")
+@option("--sort-version", "sort_version_str", type=str, default=None, help="Sort version string (e.g. 8.5.0).")
 @option("--architecture", type=str, help="Architecture (e.g. x86_64).")
 @option("--cpe", type=str, help="CPE string.")
 @option("--platform", type=str, help="Platform.")
@@ -112,6 +115,7 @@ def create_version(
         product_id: int,
         yaml_path: Optional[Path],
         version_str: Optional[str],
+        sort_version_str: Optional[str],
         architecture: Optional[str],
         cpe: Optional[str],
         platform: Optional[str],
@@ -126,6 +130,7 @@ def create_version(
         data = merge_payload(
             data,
             version=version_str,
+            sort_version=sort_version_str,
             architecture=architecture,
             cpe=cpe,
             platform=platform,
@@ -137,6 +142,7 @@ def create_version(
         data = merge_payload(
             {},
             version=version_str,
+            sort_version=sort_version_str,
             architecture=architecture,
             cpe=cpe,
             platform=platform,
@@ -158,6 +164,7 @@ def create_version(
 @option("--yaml-file", "yaml_path", type=Path,
         help="Path to a YAML file describing the product version payload.")
 @option("--version", "version_str", type=str, help="Version string (e.g. 8.5).")
+@option("--sort-version", "sort_version_str", type=str, default=None, help="Sort version string (e.g. 8.5.0).")
 @option("--architecture", type=str, help="Architecture (e.g. x86_64).")
 @option("--cpe", type=str, help="CPE string.")
 @option("--platform", type=str, help="Platform.")
@@ -171,6 +178,7 @@ def update_version(
         version_id: int,
         yaml_path: Optional[Path],
         version_str: Optional[str],
+        sort_version_str: Optional[str],
         architecture: Optional[str],
         cpe: Optional[str],
         platform: Optional[str],
@@ -185,6 +193,7 @@ def update_version(
         data = merge_payload(
             data,
             version=version_str,
+            sort_version=sort_version_str,
             architecture=architecture,
             cpe=cpe,
             platform=platform,
@@ -194,7 +203,7 @@ def update_version(
     else:
         has_option = any(
             v is not None
-            for v in (version_str, architecture, cpe, platform, visibility)
+            for v in (version_str, sort_version_str, architecture, cpe, platform, visibility)
         )
         if not has_option:
             raise ClickException(
@@ -207,6 +216,7 @@ def update_version(
         data = merge_payload(
             data,
             version=version_str,
+            sort_version=sort_version_str,
             architecture=architecture,
             cpe=cpe,
             platform=platform,
