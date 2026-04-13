@@ -44,16 +44,26 @@ YAML by hand.
 Authoring workflow (recommended)
 ----------------------------------
 
-1. Initialize a new manifest. Specify the product using either ``--product-id``
-   or both ``--product-eng-id`` and ``--product-name``. Use ``--force`` to
-   overwrite an existing file.
+1. Initialize a new manifest. Specify the product using **exactly one** of
+   ``--product-id``, ``--product-eng-id``, ``--product-name``, or
+   ``--product-code``. The last three resolve a product id by listing products
+   from the API (case-insensitive match on name or product code; exact match on
+   engineering id). If several products match, the CLI uses the largest
+   product id and prints a warning. Use ``--force`` to overwrite an existing
+   file.
 
    .. code-block:: bash
 
-      ud2 release init release.yaml --product-eng-id 4001 --product-name "Project Atlas" \\
+      ud2 release init release.yaml --product-eng-id 4001 \\
           --version 1.0 --architecture x86_64 --platform linux
 
-   Or with product ID:
+   Or by name or code (requires API access):
+
+   .. code-block:: bash
+
+      ud2 release init release.yaml --product-name "Project Atlas" --version 1.0
+
+   Or with a known product id (no API lookup):
 
    .. code-block:: bash
 

@@ -8,9 +8,11 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from click import ClickException, argument, echo, group, option
+from requests import HTTPError
 
 from ..loader import load_yaml, pretty_yaml
 from ..models import Version, VersionCreate
+from .release import _init_resolve_product_id
 from .util import (
     CLIState,
     catchall,
@@ -19,6 +21,26 @@ from .util import (
     pass_state,
     tabulate,
 )
+
+
+def _resolve_product_id_for_version_list(
+        state: CLIState,
+        product_spec: str) -> int:
+    """
+    Parse ``product_spec`` as a numeric product id, or resolve by product code.
+
+    Non-numeric values are matched against ``Product.product_code`` (case-insensitive),
+    using the same rules as ``release init --product-code``.
+    """
+
+    stripped = product_spec.strip()
+    if not stripped:
+        raise ClickException('Product identifier cannot be empty.')
+
+    if stripped.isdigit():
+        return int(stripped)
+
+    return _init_resolve_product_id(state.client, product_code=stripped)
 
 
 def render_versions(versions: Sequence[Version], yaml: bool) -> None:
@@ -83,17 +105,34 @@ def version() -> None:
 
 
 @version.command(name="list")
-@argument("product_id", type=int)
+@argument(
+    "product_spec",
+    type=str,
+    metavar="PRODUCT",
+)
 @pass_state
 @catchall
 def list_versions(
         state: CLIState,
-        product_id: int) -> None:
+        product_spec: str) -> None:
     """
     List product versions for a product.
+
+    PRODUCT may be a numeric id or a product code (case-insensitive).
     """
 
-    versions = state.client.list_product_versions(product_id)
+    product_id = _resolve_product_id_for_version_list(state, product_spec)
+
+    try:
+        versions = state.client.list_product_versions(product_id)
+    except HTTPError as exc:
+        response = getattr(exc, 'response', None)
+        if response is not None and response.status_code == 404:
+            raise ClickException(
+                'No product was found for that identifier.',
+            ) from exc
+        raise
+
     render_versions(versions, state.yaml_output)
 
 

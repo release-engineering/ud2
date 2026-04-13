@@ -85,6 +85,78 @@ class TestCliRunnerSmoke(unittest.TestCase):
         self.assertEqual(payload.version, "1.0")
 
     @mock.patch("ud2.cli.build_cli_state")
+    def test_version_list_numeric_product_id_invokes_client(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.list_product_versions.return_value = []
+
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ["version", "list", "42"],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        client.list_product_versions.assert_called_once_with(42)
+        client.list_products.assert_not_called()
+
+    @mock.patch("ud2.cli.build_cli_state")
+    def test_version_list_product_code_resolves_via_client(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.list_products.return_value = [
+            Product(id=7, eng_id=100, name="Widget", product_code="DEMO"),
+        ]
+        client.list_product_versions.return_value = []
+
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ["version", "list", "demo"],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        client.list_products.assert_called_once_with()
+        client.list_product_versions.assert_called_once_with(7)
+
+    @mock.patch("ud2.cli.build_cli_state")
+    def test_version_list_not_found_polite_message(
+            self, build_state: mock.MagicMock) -> None:
+        import requests
+
+        client = mock.Mock(spec=UDClient)
+        err = requests.HTTPError()
+        err.response = mock.Mock(status_code=404, text='')
+        client.list_product_versions.side_effect = err
+
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ["version", "list", "99"],
+        )
+
+        self.assertNotEqual(result.exit_code, 0, result.output)
+        self.assertIn('No product was found', result.output)
+
+    @mock.patch("ud2.cli.build_cli_state")
     def test_repository_create_with_file_artifact_invokes_client(
             self, build_state: mock.MagicMock) -> None:
         client = mock.Mock(spec=UDClient)

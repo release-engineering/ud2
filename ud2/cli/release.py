@@ -4,7 +4,7 @@ Release check and push command registrations.
 
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 from click import ClickException
@@ -12,8 +12,9 @@ from click import Path as ClickPath
 from click import argument, echo, group, option
 
 from ..checksums import file_metadata
+from ..client import UDClient
 from ..loader import load_yaml, pretty_yaml
-from ..models import ProductRef, Release, RepositoryEntry, VersionRef
+from ..models import Product, ProductRef, Release, RepositoryEntry, VersionRef
 from ..models.enums import ContentType
 from ..release import (ReleaseError, apply_release, check_release,
                        load_release_manifest, write_release_manifest)
@@ -54,6 +55,85 @@ def _split_comma(s: Optional[str]) -> List[str]:
     if s is None or not s.strip():
         return []
     return [part.strip() for part in s.split(',') if part.strip()]
+
+
+def _strip_optional_str(value: Optional[str]) -> Optional[str]:
+    """Return stripped non-empty string, or None if missing or blank."""
+
+    if value is None:
+        return None
+
+    stripped = value.strip()
+    if not stripped:
+        return None
+
+    return stripped
+
+
+def _init_resolve_product_id(
+        client: UDClient,
+        *,
+        product_eng_id: Optional[int] = None,
+        product_name: Optional[str] = None,
+        product_code: Optional[str] = None) -> int:
+    """
+    Resolve a product database id by listing products and matching one criterion.
+
+    :param client: API client.
+    :param product_eng_id: Match ``Product.eng_id`` (exact).
+    :param product_name: Match ``Product.name`` (case-insensitive).
+    :param product_code: Match ``Product.product_code`` (case-insensitive).
+
+    :returns: Chosen product id (largest id when multiple matches, with warning).
+    """
+
+    active: List[Tuple[str, Any]] = []
+    if product_eng_id is not None:
+        active.append(('engineering ID', product_eng_id))
+    if product_name is not None:
+        active.append(('name', product_name))
+    if product_code is not None:
+        active.append(('product code', product_code))
+
+    if len(active) != 1:
+        raise ValueError('expected exactly one lookup key for API product resolution')
+
+    kind_label, search_value = active[0]
+    products = client.list_products()
+    matches: List[Product]
+
+    if product_eng_id is not None:
+        matches = [p for p in products if p.eng_id == product_eng_id]
+        search_display = str(product_eng_id)
+    elif product_name is not None:
+        key = product_name.casefold()
+        matches = [p for p in products if p.name.casefold() == key]
+        search_display = product_name
+    else:
+        assert product_code is not None
+        key = product_code.casefold()
+        matches = [
+            p for p in products
+            if p.product_code is not None
+            and p.product_code.casefold() == key
+        ]
+        search_display = product_code
+
+    if not matches:
+        raise ClickException(
+            "No product found for {0} {1!r}.".format(kind_label, search_display),
+        )
+
+    chosen_id = max(p.id for p in matches)
+    if len(matches) > 1:
+        echo(
+            "Warning: Multiple products match {0} {1!r}; using product id {2}.".format(
+                kind_label, search_display, chosen_id,
+            ),
+            err=True,
+        )
+
+    return chosen_id
 
 
 def _report_to_serializable(report: Dict[str, Any]) -> Dict[str, Any]:
@@ -144,6 +224,7 @@ def release() -> None:
 @option("--product-id", "product_id", type=int, help="Product ID.")
 @option("--product-eng-id", "product_eng_id", type=int, help="Product eng ID.")
 @option("--product-name", "product_name", type=str, help="Product name.")
+@option("--product-code", "product_code", type=str, help="Product code.")
 @option("--version", "version_str", required=True, type=str,
         help="Version string.")
 @option("--architecture", type=str, help="Architecture.")
@@ -159,6 +240,7 @@ def init(
         product_id: Optional[int],
         product_eng_id: Optional[int],
         product_name: Optional[str],
+        product_code: Optional[str],
         version_str: str,
         architecture: Optional[str],
         platform: Optional[str],
@@ -166,11 +248,18 @@ def init(
         cpe: Optional[str],
         force: bool) -> None:
     """Create a new release manifest."""
+    product_name = _strip_optional_str(product_name)
+    product_code = _strip_optional_str(product_code)
+
     has_id = product_id is not None
-    has_search = product_eng_id is not None and product_name is not None
-    if not has_id and not has_search:
+    has_eng = product_eng_id is not None
+    has_name = product_name is not None
+    has_code = product_code is not None
+    mode_count = sum((has_id, has_eng, has_name, has_code))
+    if mode_count != 1:
         raise ClickException(
-            "Specify --product-id or both --product-eng-id and --product-name.",
+            "Specify exactly one of --product-id, --product-eng-id, "
+            "--product-name, or --product-code.",
         )
 
     path = resolve_release_path_for_init(Path(releasefile))
@@ -181,12 +270,16 @@ def init(
     path.parent.mkdir(parents=True, exist_ok=True)
 
     if has_id:
-        product_ref = ProductRef(id=product_id)
+        resolved_id = product_id
     else:
-        product_ref = ProductRef(
-            eng_id=product_eng_id,
-            name=product_name,
+        resolved_id = _init_resolve_product_id(
+            state.client,
+            product_eng_id=product_eng_id if has_eng else None,
+            product_name=product_name if has_name else None,
+            product_code=product_code if has_code else None,
         )
+
+    product_ref = ProductRef(id=resolved_id)
 
     version_ref = VersionRef(
         version=version_str,
