@@ -109,7 +109,7 @@ class TestUDClient(unittest.TestCase):
             captured['url'],
             'https://downloads.example.test/api/products',
         )
-        self.assertEqual(captured['params'], {'page': 2})
+        self.assertEqual(captured['params'], {'page': 2, 'sort': 'asc'})
         self.assertIsInstance(payload, PaginatedProducts)
         self.assertEqual(payload.data, [])
         self.assertEqual(payload.limit, 10)
@@ -155,8 +155,11 @@ class TestUDClient(unittest.TestCase):
         self.assertEqual(len(session.requests), 2)
         first_request = session.requests[0]
         second_request = session.requests[1]
-        self.assertEqual(first_request['params'], {'page': 1})
-        self.assertEqual(second_request['params'], {'page': 2, 'limit': 1})
+        self.assertEqual(first_request['params'], {'page': 1, 'sort': 'asc'})
+        self.assertEqual(
+            second_request['params'],
+            {'page': 2, 'limit': 1, 'sort': 'asc'},
+        )
 
     def test_create_product_returns_model(self) -> None:
         session = StubSession([
@@ -262,6 +265,30 @@ class TestUDClient(unittest.TestCase):
             captured['url'],
             'https://downloads.example.test/api/products/10/product_versions',
         )
+
+    def test_list_product_versions_sorts_by_id(self) -> None:
+        session = StubSession([
+            StubResponse(
+                headers={'Content-Type': 'application/json'},
+                json_data={'data': [
+                    {
+                        'id': 10,
+                        'productId': 1,
+                        'version': '2.0',
+                    },
+                    {
+                        'id': 2,
+                        'productId': 1,
+                        'version': '1.0',
+                    },
+                ]},
+            ),
+        ])
+        client = UDClient(config=self.config, session=session)
+
+        versions = client.list_product_versions(product_id=1)
+
+        self.assertEqual([v.id for v in versions], [2, 10])
 
     def test_create_product_version_with_wrapped_response_returns_model(
             self) -> None:
@@ -412,7 +439,7 @@ class TestUDClient(unittest.TestCase):
             captured['url'],
             'https://downloads.example.test/api/product_versions/11/files',
         )
-        self.assertEqual(captured['params'], {'limit': 5})
+        self.assertEqual(captured['params'], {'limit': 5, 'sort': 'asc'})
 
     def test_list_repositories_collects_all_pages(self) -> None:
         session = StubSession([
@@ -455,8 +482,11 @@ class TestUDClient(unittest.TestCase):
         self.assertEqual(len(session.requests), 2)
         first_request = session.requests[0]
         second_request = session.requests[1]
-        self.assertEqual(first_request['params'], {'page': 1})
-        self.assertEqual(second_request['params'], {'page': 2, 'limit': 1})
+        self.assertEqual(first_request['params'], {'page': 1, 'sort': 'asc'})
+        self.assertEqual(
+            second_request['params'],
+            {'page': 2, 'limit': 1, 'sort': 'asc'},
+        )
 
     def test_search_products_calls_search_endpoint_with_params(self) -> None:
         session = StubSession([

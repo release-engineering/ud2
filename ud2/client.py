@@ -284,7 +284,7 @@ class UDClient:
         Retrieve versions for a product.
 
         :param product_id: Product identifier.
-        :returns: Versions associated with the product.
+        :returns: Versions associated with the product, ordered by ID ascending.
         """
 
         response = self._GET(
@@ -292,7 +292,7 @@ class UDClient:
             model=ResponseVersions,
         )
 
-        return list(response.data)
+        return sorted(response.data, key=lambda v: v.id)
 
 
     def create_product_version(
@@ -596,6 +596,9 @@ class UDClient:
             sort: Optional[str]) -> Optional[Dict[str, Any]]:
         """
         Build pagination parameters for list endpoints.
+
+        ``sort`` defaults to ``asc`` (ID ascending) when omitted; the query
+        always includes an explicit ``sort`` value.
         """
 
         params: Dict[str, Any] = {}
@@ -606,8 +609,7 @@ class UDClient:
         if limit is not None:
             params['limit'] = limit
 
-        if sort is not None:
-            params['sort'] = sort
+        params['sort'] = 'asc' if sort is None else sort
 
         return params or None
 
