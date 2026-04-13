@@ -502,5 +502,165 @@ class TestCliRunnerSmoke(unittest.TestCase):
         client.get_repository.assert_called_once_with(1)
         client.update_repository.assert_not_called()
 
+    @staticmethod
+    def _sample_repository(rid: int = 5) -> Repository:
+        return Repository(
+            id=rid,
+            description="Sample",
+            fileName="sample.bin",
+            fileSize=100,
+            sha256=(
+                "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+            ),
+            md5="5eb63bbbe01eeed093cb22bb8f5acdc3",
+            issues=[],
+            visibility="visible",
+            classifier=[],
+            productVersionId=2,
+        )
+
+    @mock.patch("ud2.cli.build_cli_state")
+    def test_repository_delete_force_skips_confirm(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.get_repository.return_value = self._sample_repository()
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ["repository", "delete", "5", "--force"],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        client.get_repository.assert_called_once_with(5)
+        client.delete_repository.assert_called_once_with(5)
+
+    @mock.patch("ud2.cli.build_cli_state")
+    def test_repository_delete_confirm_y_invokes_delete(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.get_repository.return_value = self._sample_repository()
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ["repository", "delete", "5"],
+            input="y\n",
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        client.get_repository.assert_called_once_with(5)
+        client.delete_repository.assert_called_once_with(5)
+
+    @mock.patch("ud2.cli.build_cli_state")
+    def test_version_delete_blocked_when_repositories_exist(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.get_product_version.return_value = Version(
+            id=3, productId=1, version="1.0",
+        )
+        client.list_repositories.return_value = [self._sample_repository()]
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ["version", "delete", "3", "--force"],
+        )
+
+        self.assertNotEqual(result.exit_code, 0, result.output)
+        self.assertIn("repository file(s) still associated", result.output)
+        client.delete_product_version.assert_not_called()
+
+    @mock.patch("ud2.cli.build_cli_state")
+    def test_version_delete_force_deletes_when_no_repositories(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.get_product_version.return_value = Version(
+            id=3, productId=1, version="1.0",
+        )
+        client.list_repositories.return_value = []
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ["version", "delete", "3", "--force"],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        client.get_product_version.assert_called_once_with(3)
+        client.list_repositories.assert_called_once_with(3)
+        client.delete_product_version.assert_called_once_with(3)
+
+    @mock.patch("ud2.cli.build_cli_state")
+    def test_product_delete_blocked_when_versions_exist(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.get_product.return_value = Product(
+            id=10, eng_id=200, name="Widget",
+        )
+        client.list_product_versions.return_value = [
+            Version(id=1, productId=10, version="1.0"),
+        ]
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ["product", "delete", "10", "--force"],
+        )
+
+        self.assertNotEqual(result.exit_code, 0, result.output)
+        self.assertIn("version(s) still exist", result.output)
+        client.delete_product.assert_not_called()
+
+    @mock.patch("ud2.cli.build_cli_state")
+    def test_product_delete_force_deletes_when_no_versions(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.get_product.return_value = Product(
+            id=10, eng_id=200, name="Widget",
+        )
+        client.list_product_versions.return_value = []
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ["product", "delete", "10", "--force"],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        client.get_product.assert_called_once_with(10)
+        client.list_product_versions.assert_called_once_with(10)
+        client.delete_product.assert_called_once_with(10)
+
 
 # The end.

@@ -15,7 +15,14 @@ from ..checksums import file_metadata
 from ..loader import load_yaml, pretty_yaml
 from ..models import Repository, RepositoryCreate, RepositoryResult
 from ..models.enums import ContentType
-from .util import CLIState, catchall, merge_payload, pass_state, tabulate
+from .util import (
+    CLIState,
+    catchall,
+    confirm_deletion,
+    merge_payload,
+    pass_state,
+    tabulate,
+)
 
 
 def render_repositories(repositories: Sequence[Repository], yaml: bool) -> None:
@@ -101,6 +108,18 @@ def render_repository(
         echo(f"  Download: {repository.download_link}")
     echo(f"  Published: {repository.publish_date.isoformat() if repository.publish_date else ''}")
     echo(f"  Updated: {repository.update_date.isoformat() if repository.update_date else ''}")
+
+
+def echo_repository_delete_preview(repository: Repository) -> None:
+    """
+    Print a short plain-text summary before a delete confirmation.
+    """
+
+    echo(f"Repository: {repository.description} [ID: {repository.id}]")
+    echo(f"  File: {repository.file_name}")
+    vid = repository.product_version_id
+    if vid is not None:
+        echo(f"  Version ID: {vid}")
 
 
 @group(name="repository", help="Repository operations.")
@@ -497,14 +516,21 @@ def search_repositories(
 
 @repository.command(name="delete")
 @argument("file_id", type=int)
+@option("--force", is_flag=True,
+        help="Delete without confirmation.")
 @pass_state
 @catchall
 def delete_repository(
         state: CLIState,
-        file_id: int) -> None:
+        file_id: int,
+        force: bool) -> None:
     """
     Delete a repository (file).
     """
+
+    repository = state.client.get_repository(file_id)
+    echo_repository_delete_preview(repository)
+    confirm_deletion(force, "Delete this entry?")
 
     state.client.delete_repository(file_id)
     echo("Success.")

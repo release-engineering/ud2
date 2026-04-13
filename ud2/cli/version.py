@@ -11,7 +11,14 @@ from click import ClickException, argument, echo, group, option
 
 from ..loader import load_yaml, pretty_yaml
 from ..models import Version, VersionCreate
-from .util import CLIState, merge_payload, catchall, pass_state, tabulate
+from .util import (
+    CLIState,
+    catchall,
+    confirm_deletion,
+    merge_payload,
+    pass_state,
+    tabulate,
+)
 
 
 def render_versions(versions: Sequence[Version], yaml: bool) -> None:
@@ -57,6 +64,15 @@ def render_version(version: Version, yaml: bool) -> None:
     echo(f"  Visibility: {version.visibility}")
     if version.sort_version:
         echo(f"  Sort As: '{version.sort_version}'")
+
+
+def echo_version_delete_preview(version: Version) -> None:
+    """
+    Print a short plain-text summary before a delete confirmation.
+    """
+
+    echo(f"Version: '{version.version}' [ID: {version.id}]")
+    echo(f"  Product ID: {version.product_id}")
 
 
 @group(name="version", help="Product version operations.")
@@ -271,14 +287,29 @@ def search_versions(
 
 @version.command(name="delete")
 @argument("version_id", type=int)
+@option("--force", is_flag=True,
+        help="Delete without confirmation.")
 @pass_state
 @catchall
 def delete_version(
         state: CLIState,
-        version_id: int) -> None:
+        version_id: int,
+        force: bool) -> None:
     """
     Delete a product version.
     """
+
+    version = state.client.get_product_version(version_id)
+    repositories = state.client.list_repositories(version_id)
+
+    if repositories:
+        raise ClickException(
+            f"Cannot delete version {version_id}: {len(repositories)} "
+            f"repository file(s) still associated. Remove them first.",
+        )
+
+    echo_version_delete_preview(version)
+    confirm_deletion(force, "Delete this entry?")
 
     state.client.delete_product_version(version_id)
     echo("Success.")

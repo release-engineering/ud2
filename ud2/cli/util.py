@@ -9,7 +9,7 @@ from typing import (Any, Callable, Dict, List, Optional, Sequence, TextIO,
                     Tuple, Union)
 
 from pathlib import Path
-from click import ClickException, Context, echo, pass_context
+from click import ClickException, Context, confirm, echo, pass_context
 from pydantic import ValidationError
 from requests import HTTPError
 from yaml import YAMLError
@@ -141,6 +141,21 @@ def merge_payload(base: Dict[str, Any], **overrides: Any) -> Dict[str, Any]:
         if value is not None:
             result[key] = value
     return result
+
+
+def confirm_deletion(force: bool, prompt: str) -> None:
+    """
+    Prompt for confirmation unless force is True.
+
+    :param force: When True, skip the prompt.
+    :param prompt: Text shown to the user before [y/N].
+    """
+
+    if force:
+        return
+
+    if not confirm(prompt, default=False):
+        raise ClickException("Aborted.")
 
 
 def tabulate(

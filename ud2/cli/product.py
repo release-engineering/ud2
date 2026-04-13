@@ -11,7 +11,14 @@ from click import Choice, ClickException, argument, echo, option, group
 
 from ..loader import pretty_yaml, load_yaml
 from ..models import Product, ProductCreate
-from .util import CLIState, merge_payload, pass_state, catchall, tabulate
+from .util import (
+    CLIState,
+    catchall,
+    confirm_deletion,
+    merge_payload,
+    pass_state,
+    tabulate,
+)
 
 
 def render_products(products: Sequence[Product], yaml: bool) -> None:
@@ -52,6 +59,15 @@ def render_product(product: Product, yaml: bool) -> None:
     echo(f"  Product Code: {product.product_code}")
     echo(f"  Product Group: {product.product_group}")
     echo(f"  Product Group Name: {product.product_group_name}")
+
+
+def echo_product_delete_preview(product: Product) -> None:
+    """
+    Print a short plain-text summary before a delete confirmation.
+    """
+
+    echo(f"Product: {product.name} [ID: {product.id}]")
+    echo(f"  Engineering ID: {product.eng_id}")
 
 
 @group(name="product", help="Product related operations.")
@@ -293,14 +309,29 @@ def search_products(
 
 @product.command(name="delete")
 @argument("product_id", type=int)
+@option("--force", is_flag=True,
+        help="Delete without confirmation.")
 @pass_state
 @catchall
 def delete_product(
         state: CLIState,
-        product_id: int) -> None:
+        product_id: int,
+        force: bool) -> None:
     """
     Delete a product.
     """
+
+    product = state.client.get_product(product_id)
+    versions = state.client.list_product_versions(product_id)
+
+    if versions:
+        raise ClickException(
+            f"Cannot delete product {product_id}: {len(versions)} version(s) "
+            f"still exist. Remove them first.",
+        )
+
+    echo_product_delete_preview(product)
+    confirm_deletion(force, "Delete this entry?")
 
     state.client.delete_product(product_id)
     echo("Success.")

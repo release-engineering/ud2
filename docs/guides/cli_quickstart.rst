@@ -3,9 +3,10 @@ UD2 CLI Quickstart Scenarios
 ============================
 
 This guide walks through the core ``ud2`` command-line workflows you will use
-when preparing a new release: creating a product record, adding versions, and
-attaching downloadable files. Each section is self-contained so you can follow
-along in sequence or jump straight to the scenario you need.
+when preparing a new release: creating a product record, adding versions,
+attaching downloadable files, and deleting those resources safely. Each section
+is self-contained so you can follow along in sequence or jump straight to the
+scenario you need.
 
 
 Prerequisites
@@ -170,6 +171,45 @@ The CLI confirms success and prints the updated repository. To verify the
 change, re-run ``ud2 repository get 205``.
 
 
+Deleting resources
+==================
+
+``ud2 product delete``, ``ud2 version delete``, and ``ud2 repository delete`` are
+interactive by default. Each command loads the target record from the API, prints
+a short plain-text summary (independent of global ``--yaml`` output), and asks:
+
+``Delete this entry? [y/N]``. The default is **no**; only an explicit ``y``
+continues to the delete request.
+
+Pass ``--force`` to skip the confirmation prompt. ``--force`` does **not**
+override dependency checks on product or version deletes:
+
+* **Product:** deletion is refused if any product versions still exist for that
+  product. Remove those versions (after their files are gone) before deleting
+  the product.
+* **Version:** deletion is refused if any repository (file) records are still
+  attached to that version. Remove those files first.
+* **Repository (file):** there is no dependency check; ``--force`` only skips
+  the prompt.
+
+When a delete is blocked by existing child resources, the CLI prints an error
+that includes a count and does not call the delete API.
+
+.. code-block:: bash
+
+   # Prompted after a short preview (answer y or n)
+   ud2 repository delete 205
+
+   # No prompt; still loads the record first
+   ud2 repository delete 205 --force
+
+   # Fails if the product still has versions
+   ud2 product delete 4001
+
+   # Fails if the version still has repository files
+   ud2 version delete 101
+
+
 Next Steps
 ==========
 
@@ -181,6 +221,8 @@ Next Steps
   or CI pipelines.
 * Use ``ud2 --help`` and command-specific ``--help`` flags to discover advanced
   options.
+* See **Deleting resources** for interactive deletes, ``--force``, and when
+  product or version removal is blocked by existing child records.
 
 Using YAML Files
 ================
