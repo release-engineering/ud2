@@ -397,7 +397,9 @@ def apply_release(
     updated = []
     result_repos = []
 
-    for entry in release.repositories:
+    # in order to preserve the order of the repositories in the manifest, we
+    # need to process them in reverse order
+    for entry in reversed(release.repositories):
         repo, was_create = ensure_repository(
             client,
             version.id,

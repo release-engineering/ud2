@@ -392,7 +392,7 @@ def add(
 
     entry = RepositoryEntry.model_validate(data)
     release_obj = load_release_manifest(manifest_path)
-    release_obj.repositories.append(entry)
+    release_obj.repositories.insert(0, entry)
     write_release_manifest(manifest_path, release_obj)
     echo(f"Added {entry.description}")
 
