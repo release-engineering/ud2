@@ -19,8 +19,6 @@ class ProductRef(StrictModel):
 class VersionRef(StrictModel):
     """
     Version reference within a product.
-
-    Optional ``sort_version`` matches the API field used for version ordering.
     """
 
     id: Optional[int] = None
