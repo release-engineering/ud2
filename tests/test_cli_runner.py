@@ -157,6 +157,99 @@ class TestCliRunnerSmoke(unittest.TestCase):
         self.assertIn('No product was found', result.output)
 
     @mock.patch("ud2.cli.build_cli_state")
+    def test_version_get_numeric_version_id_invokes_client(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.get_product_version.return_value = Version(
+            id=42,
+            productId=7,
+            version='1.2.3',
+            visibility='visible',
+        )
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ['version', 'get', '42'],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        client.get_product_version.assert_called_once_with(42)
+        client.list_products.assert_not_called()
+        client.list_product_versions.assert_not_called()
+
+    @mock.patch("ud2.cli.build_cli_state")
+    def test_version_get_product_code_and_version_resolves_id(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.list_products.return_value = [
+            Product(id=7, eng_id=100, name='Widget', product_code='data.grid'),
+        ]
+        client.list_product_versions.return_value = [
+            Version(id=12345, productId=7, version='1.2.3', visibility='visible'),
+        ]
+        client.get_product_version.return_value = Version(
+            id=12345,
+            productId=7,
+            version='1.2.3',
+            visibility='visible',
+        )
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ['version', 'get', 'data.grid', '1.2.3'],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        client.list_products.assert_called_once_with()
+        client.list_product_versions.assert_called_once_with(7)
+        client.get_product_version.assert_called_once_with(12345)
+
+    @mock.patch("ud2.cli.build_cli_state")
+    def test_version_get_product_code_and_version_warns_on_multiple_matches(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.list_products.return_value = [
+            Product(id=7, eng_id=100, name='Widget', product_code='data.grid'),
+        ]
+        client.list_product_versions.return_value = [
+            Version(id=100, productId=7, version='1.2.3', visibility='visible'),
+            Version(id=200, productId=7, version='1.2.3', visibility='hidden'),
+        ]
+        client.get_product_version.return_value = Version(
+            id=200,
+            productId=7,
+            version='1.2.3',
+            visibility='hidden',
+        )
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ['version', 'get', 'data.grid', '1.2.3'],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("Warning: Multiple versions match '1.2.3'; using version id 200.", result.output)
+        client.get_product_version.assert_called_once_with(200)
+
+    @mock.patch("ud2.cli.build_cli_state")
     def test_repository_list_numeric_version_id_invokes_client(
             self, build_state: mock.MagicMock) -> None:
         client = mock.Mock(spec=UDClient)

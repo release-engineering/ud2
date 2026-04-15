@@ -43,6 +43,54 @@ def _resolve_product_id_for_version_list(
     return _init_resolve_product_id(state.client, product_code=stripped)
 
 
+def _resolve_version_id_for_version_get(
+        state: CLIState,
+        product_or_version: str,
+        version_spec: Optional[str]) -> int:
+    """
+    Resolve version get positional args to a product version ID.
+
+    With one positional arg, value must be numeric and is treated as version ID.
+    With two positional args, first is product id/code and second is version string.
+    """
+
+    first = product_or_version.strip()
+    if not first:
+        raise ClickException('Version identifier cannot be empty.')
+
+    if version_spec is None:
+        if first.isdigit():
+            return int(first)
+        raise ClickException(
+            'When using a single argument, provide a numeric version ID.',
+        )
+
+    second = version_spec.strip()
+    if not second:
+        raise ClickException('Version string cannot be empty.')
+
+    product_id = _resolve_product_id_for_version_list(state, first)
+    versions = state.client.list_product_versions(product_id)
+    matches = [
+        version for version in versions
+        if version.version.strip().casefold() == second.casefold()
+    ]
+    if not matches:
+        raise ClickException(
+            "No version {0!r} found for product {1!r}.".format(second, first),
+        )
+
+    chosen = max(matches, key=lambda item: item.id)
+    if len(matches) > 1:
+        echo(
+            "Warning: Multiple versions match {0!r}; using version id {1}.".format(
+                second, chosen.id,
+            ),
+            err=True,
+        )
+    return chosen.id
+
+
 def render_versions(versions: Sequence[Version], yaml: bool) -> None:
     """
     Render versions according to the configured output mode.
@@ -137,16 +185,23 @@ def list_versions(
 
 
 @version.command(name="get")
-@argument("version_id", type=int)
+@argument('product_or_version', type=str, metavar='VERSION_ID|PRODUCT')
+@argument('version_spec', type=str, required=False, metavar='VERSION')
 @pass_state
 @catchall
 def get_version(
         state: CLIState,
-        version_id: int) -> None:
+        product_or_version: str,
+        version_spec: Optional[str]) -> None:
     """
     Retrieve a product version by identifier.
     """
 
+    version_id = _resolve_version_id_for_version_get(
+        state,
+        product_or_version,
+        version_spec,
+    )
     version = state.client.get_product_version(version_id)
     render_version(version, state.yaml_output)
 
