@@ -15,6 +15,7 @@ from ..checksums import file_metadata
 from ..loader import load_yaml, pretty_yaml
 from ..models import Repository, RepositoryCreate, RepositoryResult
 from ..models.enums import ContentType
+from .release import _init_resolve_product_id
 from .util import (
     CLIState,
     catchall,
@@ -23,6 +24,78 @@ from .util import (
     pass_state,
     tabulate,
 )
+
+
+def _visibility_indicator(visibility: Optional[str]) -> str:
+    """
+    Return a one-letter visibility indicator for tabular output.
+    """
+
+    if visibility is None:
+        return '?'
+
+    lowered = visibility.strip().casefold()
+    if lowered == 'visible':
+        return 'V'
+    if lowered == 'hidden':
+        return 'H'
+    if lowered == 'unlisted':
+        return 'U'
+    if not lowered:
+        return '?'
+    return lowered[0].upper()
+
+
+def _resolve_repository_list_version_id(
+        state: CLIState,
+        product_or_version: str,
+        version_spec: Optional[str]) -> int:
+    """
+    Resolve repository list positional args to a product version ID.
+
+    With one positional arg, value must be numeric and is treated as version ID.
+    With two positional args, first is product id/code and second is version string.
+    """
+
+    first = product_or_version.strip()
+    if not first:
+        raise ClickException('Version identifier cannot be empty.')
+
+    if version_spec is None:
+        if first.isdigit():
+            return int(first)
+        raise ClickException(
+            'When using a single argument, provide a numeric version ID.',
+        )
+
+    second = version_spec.strip()
+    if not second:
+        raise ClickException('Version string cannot be empty.')
+
+    if first.isdigit():
+        product_id = int(first)
+    else:
+        product_id = _init_resolve_product_id(state.client, product_code=first)
+
+    versions = state.client.list_product_versions(product_id)
+    matches = [
+        version for version in versions
+        if version.version.strip().casefold() == second.casefold()
+    ]
+    if not matches:
+        raise ClickException(
+            "No version {0!r} found for product {1!r}.".format(second, first),
+        )
+
+    chosen = max(matches, key=lambda item: item.id)
+    if len(matches) > 1:
+        echo(
+            "Warning: Multiple versions match {0!r}; using version id {1}.".format(
+                second, chosen.id,
+            ),
+            err=True,
+        )
+    return chosen.id
 
 
 def render_repositories(repositories: Sequence[Repository], yaml: bool) -> None:
@@ -34,15 +107,13 @@ def render_repositories(repositories: Sequence[Repository], yaml: bool) -> None:
         pretty_yaml(repositories)
         return
 
-    headers = ("ID", "Description", "File Name", "File Size", "Product", "Version")
+    headers = ('ID', 'V', 'Description', 'File Name')
     rows = [
         (
             repository.id,
+            _visibility_indicator(repository.visibility),
             repository.description,
             repository.file_name,
-            repository.file_size,
-            repository.product_name or "",
-            repository.product_version or "",
         )
         for repository in repositories
     ]
@@ -130,7 +201,8 @@ def repository() -> None:
 
 
 @repository.command(name="list")
-@argument("product_version_id", type=int)
+@argument('product_or_version', type=str, metavar='VERSION_ID|PRODUCT')
+@argument('version_spec', type=str, required=False, metavar='VERSION')
 @option("--page", type=int, help="Page number used for pagination.")
 @option("--limit", type=int, help="Items per page for pagination.")
 @option("--sort", type=Choice(("asc", "desc"), case_sensitive=False),
@@ -139,7 +211,8 @@ def repository() -> None:
 @catchall
 def list_repositories(
         state: CLIState,
-        product_version_id: int,
+        product_or_version: str,
+        version_spec: Optional[str],
         page: Optional[int],
         limit: Optional[int],
         sort: Optional[str]) -> None:
@@ -147,6 +220,11 @@ def list_repositories(
     List repositories for a product version.
     """
 
+    product_version_id = _resolve_repository_list_version_id(
+        state,
+        product_or_version,
+        version_spec,
+    )
     paginated_explicitly = page is not None or limit is not None
 
     if paginated_explicitly:

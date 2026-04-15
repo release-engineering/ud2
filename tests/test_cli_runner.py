@@ -157,6 +157,103 @@ class TestCliRunnerSmoke(unittest.TestCase):
         self.assertIn('No product was found', result.output)
 
     @mock.patch("ud2.cli.build_cli_state")
+    def test_repository_list_numeric_version_id_invokes_client(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.list_repositories.return_value = [
+            Repository(
+                id=8,
+                description='Sample',
+                fileName='sample.bin',
+                fileSize=100,
+                sha256='b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9',
+                md5='5eb63bbbe01eeed093cb22bb8f5acdc3',
+                issues=[],
+                visibility='hidden',
+                classifier=[],
+            ),
+        ]
+
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ['repository', 'list', '42'],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        client.list_repositories.assert_called_once_with(
+            product_version_id=42,
+            sort=None,
+        )
+        self.assertIn('Sample', result.output)
+        self.assertRegex(result.output, r'\bH\b')
+
+    @mock.patch("ud2.cli.build_cli_state")
+    def test_repository_list_product_code_and_version_resolves_version_id(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.list_products.return_value = [
+            Product(id=7, eng_id=100, name='Widget', product_code='data.grid'),
+        ]
+        client.list_product_versions.return_value = [
+            Version(id=12345, productId=7, version='1.2.3'),
+        ]
+        client.list_repositories.return_value = []
+
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ['repository', 'list', 'data.grid', '1.2.3'],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        client.list_products.assert_called_once_with()
+        client.list_product_versions.assert_called_once_with(7)
+        client.list_repositories.assert_called_once_with(
+            product_version_id=12345,
+            sort=None,
+        )
+
+    @mock.patch("ud2.cli.build_cli_state")
+    def test_repository_list_product_code_version_not_found(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.list_products.return_value = [
+            Product(id=7, eng_id=100, name='Widget', product_code='data.grid'),
+        ]
+        client.list_product_versions.return_value = [
+            Version(id=999, productId=7, version='9.9.9'),
+        ]
+
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ['repository', 'list', 'data.grid', '1.2.3'],
+        )
+
+        self.assertNotEqual(result.exit_code, 0, result.output)
+        self.assertIn("No version '1.2.3' found for product 'data.grid'.", result.output)
+        client.list_repositories.assert_not_called()
+
+    @mock.patch("ud2.cli.build_cli_state")
     def test_repository_create_with_file_artifact_invokes_client(
             self, build_state: mock.MagicMock) -> None:
         client = mock.Mock(spec=UDClient)
