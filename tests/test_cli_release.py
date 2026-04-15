@@ -14,7 +14,7 @@ from ud2.cli.util import CLIState
 from ud2.client import UDClient
 from ud2.config import UDConfig
 
-from tests import make_product
+from tests import make_product, make_repository
 
 
 def _make_state():
@@ -434,6 +434,43 @@ class TestReleasePushCli(unittest.TestCase):
 
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn('not yet implemented', result.output)
+
+    @mock.patch('ud2.cli.release.apply_release')
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_push_plain_output_lists_created_and_updated_repository_ids(
+            self, build_state, apply_release):
+        from ud2.models import Product, Version
+
+        client = mock.Mock(spec=UDClient)
+        apply_release.return_value = {
+            'product': Product(id=1, eng_id=100, name='Test Product'),
+            'version': Version(id=2, productId=1, version='1.0'),
+            'created': [
+                make_repository(id=10, description='New artifact'),
+            ],
+            'updated': [
+                make_repository(id=20, description='Updated artifact'),
+            ],
+        }
+
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ['release', 'push', str(self.releasefile)],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        apply_release.assert_called_once()
+        self.assertIn('Created repositories:', result.output)
+        self.assertIn('[ID: 10] New artifact', result.output)
+        self.assertIn('Updated repositories:', result.output)
+        self.assertIn('[ID: 20] Updated artifact', result.output)
 
 
 class TestResolveReleasePath(unittest.TestCase):

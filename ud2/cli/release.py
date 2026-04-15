@@ -614,5 +614,15 @@ def push(
     echo(f"Created: {len(result['created'])} repository(ies)")
     echo(f"Updated: {len(result['updated'])} repository(ies)")
 
+    if result['created']:
+        echo('Created repositories:')
+        for repo in result['created']:
+            echo(f"  - [ID: {repo.id}] {repo.description}")
+
+    if result['updated']:
+        echo('Updated repositories:')
+        for repo in result['updated']:
+            echo(f"  - [ID: {repo.id}] {repo.description}")
+
 
 # The end.
