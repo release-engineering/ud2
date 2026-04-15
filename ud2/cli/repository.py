@@ -173,6 +173,7 @@ def render_repository(
         echo(f"  Version ID: {vid}")
     echo(f"  File Name: {repository.file_name}")
     echo(f"  File Size: {repository.file_size}")
+    echo(f"  Visibility: {repository.visibility}")
     echo(f"  SHA256: {repository.sha256}")
     echo(f"  Content Types: {', '.join(getattr(ct, 'value', ct) for ct in repository.content_types)}")
     if repository.download_link:

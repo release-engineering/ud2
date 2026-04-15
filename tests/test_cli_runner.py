@@ -254,6 +254,37 @@ class TestCliRunnerSmoke(unittest.TestCase):
         client.list_repositories.assert_not_called()
 
     @mock.patch("ud2.cli.build_cli_state")
+    def test_repository_get_includes_visibility_in_plain_output(
+            self, build_state: mock.MagicMock) -> None:
+        client = mock.Mock(spec=UDClient)
+        client.get_repository.return_value = Repository(
+            id=77,
+            description='Visible check',
+            fileName='visible-check.bin',
+            fileSize=123,
+            sha256='b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9',
+            md5='5eb63bbbe01eeed093cb22bb8f5acdc3',
+            issues=[],
+            visibility='hidden',
+            classifier=[],
+        )
+        build_state.return_value = CLIState(
+            config=mock.Mock(spec=UDConfig),
+            client=client,
+            yaml_output=False,
+            debug=False,
+        )
+
+        result = self.runner.invoke(
+            cli_main,
+            ['repository', 'get', '77'],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        client.get_repository.assert_called_once_with(77)
+        self.assertIn('Visibility: hidden', result.output)
+
+    @mock.patch("ud2.cli.build_cli_state")
     def test_repository_create_with_file_artifact_invokes_client(
             self, build_state: mock.MagicMock) -> None:
         client = mock.Mock(spec=UDClient)
