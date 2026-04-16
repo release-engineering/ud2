@@ -70,11 +70,13 @@ class RepositoryBase(StrictModel):
     installation: Optional[str] = Field(alias='installation', default=None)
     long_description: Optional[str] = Field(alias='longDescription', default=None)
 
+
     @field_validator('file_size')
     def _validate_file_size(cls, value: int) -> int:
         if value <= 0:
             raise ValueError('file_size must be greater than zero')
         return value
+
 
     @field_validator('issues', mode='before')
     def _coerce_issues(cls, value: Optional[List]) -> List:
@@ -83,12 +85,14 @@ class RepositoryBase(StrictModel):
 
         return [_coerce_issue(item) for item in value]
 
+
     @field_validator('content_types', mode='before')
     def _coerce_content_types(cls, value: Optional[List]) -> List:
         if not isinstance(value, list):
             raise ValueError("content_types must be a list")
 
         return [coerce_enum(ContentType, item) for item in value]
+
 
     @field_validator('sha256', mode='before')
     def _normalize_sha256(cls, value: Optional[str]) -> str:

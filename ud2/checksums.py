@@ -26,7 +26,6 @@ def file_metadata(path: Path) -> Dict[str, Any]:
         raise OSError(f"Not a regular file: {p}")
 
     file_size = p.stat().st_size
-    file_name = p.name
     sha256_hash = hashlib.sha256()
     md5_hash = hashlib.md5()
 
@@ -39,7 +38,7 @@ def file_metadata(path: Path) -> Dict[str, Any]:
             md5_hash.update(chunk)
 
     return {
-        'fileName': file_name,
+        'fileName': str(path),
         'fileSize': file_size,
         'sha256': sha256_hash.hexdigest().lower(),
         'md5': md5_hash.hexdigest().lower(),

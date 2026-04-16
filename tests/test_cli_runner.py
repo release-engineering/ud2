@@ -427,7 +427,7 @@ class TestCliRunnerSmoke(unittest.TestCase):
             client.create_repository.assert_called_once()
             payload = client.create_repository.call_args[0][1]
             self.assertEqual(payload.description, "Test artifact")
-            self.assertEqual(payload.file_name, path.name)
+            self.assertEqual(payload.file_name, str(path))
             self.assertEqual(payload.file_size, 11)
             self.assertEqual(
                 payload.sha256,

@@ -192,6 +192,49 @@ class TestReleaseInitCli(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn('exactly one', result.output)
 
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_init_sets_dirname_when_releasefile_is_directory(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            Path('Product-1.0').mkdir()
+            result = runner.invoke(
+                cli_main,
+                ['release', 'init', 'Product-1.0', '--product-id', '123',
+                 '--version', '1.0.0'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = (Path('Product-1.0') / 'ud-release.yml').read_text()
+            self.assertIn('dirname: Product-1.0', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_init_dirname_override(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            result = runner.invoke(
+                cli_main,
+                ['release', 'init', 'release.yaml', '--product-id', '123',
+                 '--version', '1.0.0', '--dirname', 'my-prefix'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = Path('release.yaml').read_text()
+            self.assertIn('dirname: my-prefix', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_init_flat_manifest_has_no_dirname_in_output(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            result = runner.invoke(
+                cli_main,
+                ['release', 'init', 'release.yaml', '--product-id', '123',
+                 '--version', '1.0.0'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = Path('release.yaml').read_text()
+            self.assertNotIn('dirname:', content)
+
 
 class TestReleaseAddCli(unittest.TestCase):
     @mock.patch('ud2.cli.build_cli_state')
@@ -248,6 +291,68 @@ class TestReleaseAddCli(unittest.TestCase):
             )
             self.assertNotEqual(result.exit_code, 0)
             self.assertIn('--desc', result.output)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_add_joins_dirname_and_basename(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(
+                cli_main,
+                ['release', 'init', 'r.yaml', '--product-id', '1',
+                 '--version', '1.0', '--dirname', 'Prod'],
+            )
+            Path('artifact.bin').write_bytes(b'hello')
+            result = runner.invoke(
+                cli_main,
+                ['release', 'add', 'r.yaml', '--file', 'artifact.bin',
+                 '--desc', 'Test artifact'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = Path('r.yaml').read_text()
+            self.assertIn('fileName: Prod/artifact.bin', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_add_explicit_file_name_skips_dirname_join(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(
+                cli_main,
+                ['release', 'init', 'r.yaml', '--product-id', '1',
+                 '--version', '1.0', '--dirname', 'Prod'],
+            )
+            Path('artifact.bin').write_bytes(b'hello')
+            result = runner.invoke(
+                cli_main,
+                ['release', 'add', 'r.yaml', '--file', 'artifact.bin',
+                 '--file-name', 'other.bin', '--desc', 'Test artifact'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = Path('r.yaml').read_text()
+            self.assertIn('fileName: other.bin', content)
+            self.assertNotIn('Prod/', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_add_uses_as_given_file_path_when_no_dirname(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(
+                cli_main,
+                ['release', 'init', 'r.yaml', '--product-id', '1',
+                 '--version', '1.0'],
+            )
+            Path('nested').mkdir()
+            Path('nested/foo.bin').write_bytes(b'x')
+            result = runner.invoke(
+                cli_main,
+                ['release', 'add', 'r.yaml', '--file', 'nested/foo.bin',
+                 '--desc', 'Nested'],
+            )
+            self.assertEqual(result.exit_code, 0)
+            content = Path('r.yaml').read_text()
+            self.assertIn('fileName: nested/foo.bin', content)
 
 
 class TestReleaseEditCli(unittest.TestCase):
@@ -563,16 +668,16 @@ class TestReleaseDirectoryLookup(unittest.TestCase):
             (projdir / 'ud-release.yml').write_text(
                 'product:\n  id: 1\nversion:\n  version: "1.0"\nrepositories: []\n',
             )
-            Path('artifact.bin').write_bytes(b'hello')
+            (projdir / 'artifact.bin').write_bytes(b'hello')
             result = runner.invoke(
                 cli_main,
-                ['release', 'add', str(projdir), '--file', 'artifact.bin',
+                ['release', 'add', str(projdir), '--file', 'projdir/artifact.bin',
                  '--desc', 'Test artifact'],
             )
             self.assertEqual(result.exit_code, 0)
             content = (projdir / 'ud-release.yml').read_text()
             self.assertIn('description: Test artifact', content)
-            self.assertIn('fileName: artifact.bin', content)
+            self.assertIn('fileName: projdir/artifact.bin', content)
 
 
 # The end.

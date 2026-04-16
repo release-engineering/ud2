@@ -2,6 +2,7 @@
 Release check and push command registrations.
 """
 
+import posixpath
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -68,6 +69,30 @@ def _strip_optional_str(value: Optional[str]) -> Optional[str]:
         return None
 
     return stripped
+
+
+def _download_file_name_for_add(
+        release_dirname: Optional[str],
+        artifact_path: Path,
+        explicit_file_name: Optional[str]) -> str:
+    """
+    Return ``fileName`` for a new repository entry when using ``--file``.
+
+    :param release_dirname: Optional ``Release.dirname`` from the manifest.
+    :param artifact_path: Path passed to ``--file``.
+    :param explicit_file_name: Value of ``--file-name``, if any.
+
+    :returns: Download-relative file name for the API.
+    """
+
+    if explicit_file_name is not None:
+        return explicit_file_name
+
+    stripped = _strip_optional_str(release_dirname)
+    if stripped:
+        return posixpath.join(stripped.rstrip('/'), artifact_path.name)
+
+    return str(artifact_path)
 
 
 def _init_resolve_product_id(
@@ -231,6 +256,8 @@ def release() -> None:
 @option("--platform", type=str, help="Platform.")
 @option("--visibility", type=str, help="Visibility.")
 @option("--cpe", type=str, help="CPE.")
+@option("--dirname", type=str,
+        help="Download URL path prefix for this release (optional override).")
 @option("--force", is_flag=True, help="Overwrite existing file.")
 @pass_state
 @catchall
@@ -246,6 +273,7 @@ def init(
         platform: Optional[str],
         visibility: Optional[str],
         cpe: Optional[str],
+        dirname: Optional[str],
         force: bool) -> None:
     """Create a new release manifest."""
     product_name = _strip_optional_str(product_name)
@@ -268,6 +296,12 @@ def init(
             f"File exists: {path}. Use --force to overwrite.",
         )
     path.parent.mkdir(parents=True, exist_ok=True)
+
+    resolved_dirname: Optional[str] = _strip_optional_str(dirname)
+    if resolved_dirname is None:
+        release_path = Path(releasefile)
+        if release_path.is_dir():
+            resolved_dirname = release_path.name
 
     if has_id:
         resolved_id = product_id
@@ -293,6 +327,7 @@ def init(
         product=product_ref,
         version=version_ref,
         repositories=[],
+        dirname=resolved_dirname,
     )
 
     write_release_manifest(path, release_obj)
@@ -305,7 +340,8 @@ def init(
 @option("--file", "artifact_path", type=ClickPath(exists=True, path_type=Path),
         help="Path to artifact (sets file_name, file_size, sha256, md5).")
 @option("--desc", "description", type=str, help="Short description (title).")
-@option("--file-name", "file_name", type=str, help="File name (explicit mode).")
+@option("--file-name", "file_name", type=str,
+        help="Full fileName for download (not combined with release dirname).")
 @option("--file-size", "file_size", type=int, help="File size (explicit mode).")
 @option("--sha256", type=str, help="SHA256 checksum (explicit mode).")
 @option("--md5", type=str, help="MD5 checksum (explicit mode).")
@@ -353,10 +389,13 @@ def add(
             raise ClickException(
                 "Provide --desc when using --file.",
             )
+        release_obj = load_release_manifest(manifest_path)
         meta = file_metadata(artifact_path)
+        download_name = _download_file_name_for_add(
+            release_obj.dirname, artifact_path, file_name)
         data = {
             'description': description,
-            'fileName': meta['fileName'],
+            'fileName': download_name,
             'fileSize': meta['fileSize'],
             'sha256': meta['sha256'],
             'md5': meta['md5'],
@@ -368,7 +407,10 @@ def add(
             'longDescription': long_description,
         }
         if not no_path:
-            data['path'] = str(artifact_path.resolve())
+            origin_path = artifact_path.resolve().relative_to(
+                manifest_path.parent.resolve(),
+            )
+            data['path'] = str(origin_path)
     else:
         required = (description, file_name, file_size, sha256, md5)
         if not all(r is not None for r in required):
@@ -391,7 +433,8 @@ def add(
         }
 
     entry = RepositoryEntry.model_validate(data)
-    release_obj = load_release_manifest(manifest_path)
+    if artifact_path is None:
+        release_obj = load_release_manifest(manifest_path)
     release_obj.repositories.insert(0, entry)
     write_release_manifest(manifest_path, release_obj)
     echo(f"Added {entry.description}")
@@ -401,7 +444,8 @@ def _find_entry(
         release: Release,
         file_name: Optional[str],
         by_index: Optional[int]) -> int:
-    """Return index of matching repository entry. Raise ClickException if not found."""
+    """Return index of matching repository entry. Raise ClickException if not
+    found."""
 
     if (file_name is None) == (by_index is None):
         raise ClickException(

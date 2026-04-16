@@ -57,11 +57,13 @@ class RepositoryEntry(StrictModel):
     long_description: Optional[str] = Field(None, alias='longDescription')
     path: Optional[str] = None
 
+
     @field_validator('file_size')
     def _validate_file_size(cls, value: int) -> int:
         if value < 0:
             raise ValueError('file_size must be greater than or equal to zero')
         return value
+
 
     @field_validator('sha256', mode='before')
     def _normalize_sha256(cls, value: Optional[str]) -> str:
@@ -98,6 +100,16 @@ class Release(StrictModel):
     product: ProductRef
     version: VersionRef
     repositories: List[RepositoryEntry] = Field(default_factory=list)
+
+    dirname: Optional[str] = Field(
+        None,
+        description=(
+            'Prefix path for downloads relative to the download URL root. '
+            'When set, ``release add`` builds fileName as dirname/basename '
+            'unless ``--file-name`` is given.'
+        ),
+    )
+
     sync: Optional[ReleaseSyncMetadata] = Field(None, alias='_sync')
 
 

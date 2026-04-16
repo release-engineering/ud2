@@ -19,7 +19,7 @@ class TestFileMetadata(unittest.TestCase):
         try:
             result = file_metadata(path)
 
-            self.assertEqual(result['fileName'], path.name)
+            self.assertEqual(result['fileName'], str(path))
             self.assertEqual(result['fileSize'], 11)
             self.assertEqual(
                 result['sha256'],
