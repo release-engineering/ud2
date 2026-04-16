@@ -12,7 +12,7 @@ scenario you need.
 Prerequisites
 =============
 
-* ``ud2`` is installed and available on your ``PATH`` (``ud2 --version`` should
+* ``ud2`` is installed and available on your ``PATH`` (``ud2 --help`` should
   succeed).
 * Your UD2 configuration file is accessible (defaults to
   ``~/.config/ud2/config.ini``). Use ``--config`` or ``--env`` if you need to
