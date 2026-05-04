@@ -2,10 +2,11 @@
 Release push/sync logic: resolve, ensure, check, and apply.
 """
 
+import sys
 import yaml
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import requests
 
@@ -41,24 +42,125 @@ class ReleaseError(Exception):
         self.kind = kind
 
 
+def _default_soft_key_warn(message: str) -> None:
+    """Emit soft-key ambiguity warning (same text as release init)."""
+
+    print(message, file=sys.stderr)
+
+
+def _soft_key_match_products(
+        products: List[Product],
+        *,
+        product_eng_id: Optional[int] = None,
+        product_name: Optional[str] = None,
+        product_code: Optional[str] = None) -> Tuple[List[Product], str, str]:
+    """
+    Filter products by exactly one of eng_id, name, or product_code.
+
+    :param products: Full product list from the API.
+    :param product_eng_id: Match ``Product.eng_id`` (exact).
+    :param product_name: Match ``Product.name`` (case-insensitive).
+    :param product_code: Match ``Product.product_code`` (case-insensitive).
+
+    :returns: (matches, kind_label, search_display) for errors and warnings.
+    :raises ValueError: If not exactly one lookup key is provided.
+    """
+
+    active: List[Tuple[str, Any]] = []
+    if product_eng_id is not None:
+        active.append(('engineering ID', product_eng_id))
+    if product_name is not None:
+        active.append(('name', product_name))
+    if product_code is not None:
+        active.append(('product code', product_code))
+
+    if len(active) != 1:
+        raise ValueError('expected exactly one lookup key for API product resolution')
+
+    kind_label, search_value = active[0]
+
+    if product_eng_id is not None:
+        matches = [p for p in products if p.eng_id == product_eng_id]
+        search_display = str(product_eng_id)
+    elif product_name is not None:
+        key = product_name.casefold()
+        matches = [p for p in products if p.name.casefold() == key]
+        search_display = product_name
+    else:
+        assert product_code is not None
+        key = product_code.casefold()
+        matches = [
+            p for p in products
+            if p.product_code is not None
+            and p.product_code.casefold() == key
+        ]
+        search_display = product_code
+
+    return (matches, kind_label, search_display)
+
+
+def _choose_product_from_soft_key_matches(
+        matches: List[Product],
+        kind_label: str,
+        search_display: str,
+        warn: Optional[Callable[[str], None]] = None) -> Optional[Product]:
+    """
+    Pick one product from soft-key matches (largest id; warn if ambiguous).
+
+    :param matches: Products matching the soft key.
+    :param kind_label: Human-readable key kind (for warning text).
+    :param search_display: Search value as shown to the user.
+    :param warn: Optional callback for ambiguity warning; defaults to stderr.
+    :returns: Chosen product, or None if matches is empty.
+    """
+
+    if not matches:
+        return None
+
+    if warn is None:
+        warn = _default_soft_key_warn
+
+    chosen = max(matches, key=lambda p: p.id)
+    if len(matches) > 1:
+        warn(
+            "Warning: Multiple products match {0} {1!r}; using product id {2}.".format(
+                kind_label, search_display, chosen.id,
+            ),
+        )
+
+    return chosen
+
+
 def _validate_product_ref(product_ref: ProductRef) -> None:
     """Ensure product_ref has sufficient data for lookup."""
-    has_id = product_ref.id is not None
-    has_search = (
-        product_ref.eng_id is not None
-        and product_ref.name is not None
+
+    if product_ref.id is not None:
+        return
+
+    has_eng = product_ref.eng_id is not None
+    has_name = product_ref.name is not None
+    has_code = product_ref.product_code is not None
+    legacy_pair = has_eng and has_name and not has_code
+    single_key = (
+        sum((has_eng, has_name, has_code)) == 1
     )
-    if not has_id and not has_search:
-        raise ReleaseError(
-            'product must specify either id or both eng_id and name',
-        )
+
+    if legacy_pair or single_key:
+        return
+
+    raise ReleaseError(
+        'product must specify id, or engId and name (legacy), or exactly one '
+        'of engId, name, or productCode',
+    )
 
 
 def resolve_product(
         client: UDClient,
         product_ref: ProductRef) -> Optional[Product]:
     """
-    Resolve product by ID or by eng_id+name search.
+    Resolve product by id, legacy eng_id+name pair, or a single soft key.
+
+    When ``id`` is set, only ``get_product(id)`` is used (no fallback).
 
     :param client: UD client.
     :param product_ref: Product reference from manifest.
@@ -75,9 +177,8 @@ def resolve_product(
                 getattr(exc, 'response', None) is not None
                 and exc.response.status_code == 404
             ):
-                pass
-            else:
-                raise
+                return None
+            raise
 
     if product_ref.eng_id is not None and product_ref.name is not None:
         for product in client.iter_products():
@@ -87,7 +188,22 @@ def resolve_product(
             ):
                 return product
 
-    return None
+        return None
+
+    products = client.list_products()
+    matches, kind_label, search_display = _soft_key_match_products(
+        products,
+        product_eng_id=product_ref.eng_id,
+        product_name=product_ref.name,
+        product_code=product_ref.product_code,
+    )
+
+    return _choose_product_from_soft_key_matches(
+        matches,
+        kind_label,
+        search_display,
+        warn=_default_soft_key_warn,
+    )
 
 
 def resolve_version(

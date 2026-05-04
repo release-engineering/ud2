@@ -34,6 +34,11 @@ class TestProductRef(unittest.TestCase):
         self.assertEqual(ref.eng_id, 4001)
         self.assertEqual(ref.name, 'Project Atlas')
 
+    def test_valid_with_product_code(self) -> None:
+        ref = ProductRef.model_validate({'productCode': 'DEMO'})
+        self.assertIsNone(ref.id)
+        self.assertEqual(ref.product_code, 'DEMO')
+
 
 class TestVersionRef(unittest.TestCase):
     def test_valid_minimal(self) -> None:

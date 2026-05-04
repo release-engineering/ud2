@@ -14,7 +14,7 @@ from ud2.cli.util import CLIState
 from ud2.client import UDClient
 from ud2.config import UDConfig
 
-from tests import make_product, make_repository
+from tests import make_repository
 
 
 def _make_state():
@@ -46,11 +46,8 @@ class TestReleaseInitCli(unittest.TestCase):
             self.assertIn('repositories: []', content)
 
     @mock.patch('ud2.cli.build_cli_state')
-    def test_init_resolves_product_eng_id_via_api(self, build_state):
+    def test_init_writes_product_eng_id_without_api(self, build_state):
         state = _make_state()
-        state.client.list_products.return_value = [
-            make_product(id=42, eng_id=4001, name='Atlas'),
-        ]
         build_state.return_value = state
         runner = CliRunner()
         with runner.isolated_filesystem():
@@ -62,17 +59,15 @@ class TestReleaseInitCli(unittest.TestCase):
             )
             self.assertEqual(result.exit_code, 0)
             content = Path('r.yaml').read_text()
-            self.assertIn('id: 42', content)
+            self.assertIn('engId: 4001', content)
+            self.assertNotIn('id:', content)
             self.assertIn('architecture: x86_64', content)
             self.assertIn('platform: linux', content)
-            state.client.list_products.assert_called_once()
+            state.client.list_products.assert_not_called()
 
     @mock.patch('ud2.cli.build_cli_state')
-    def test_init_resolves_product_name_via_api(self, build_state):
+    def test_init_writes_product_name_without_api(self, build_state):
         state = _make_state()
-        state.client.list_products.return_value = [
-            make_product(id=7, eng_id=100, name='Atlas'),
-        ]
         build_state.return_value = state
         runner = CliRunner()
         with runner.isolated_filesystem():
@@ -83,14 +78,13 @@ class TestReleaseInitCli(unittest.TestCase):
             )
             self.assertEqual(result.exit_code, 0)
             content = Path('r.yaml').read_text()
-            self.assertIn('id: 7', content)
+            self.assertIn('name: atlas', content)
+            self.assertNotIn('id:', content)
+            state.client.list_products.assert_not_called()
 
     @mock.patch('ud2.cli.build_cli_state')
-    def test_init_resolves_product_code_via_api(self, build_state):
+    def test_init_writes_product_code_without_api(self, build_state):
         state = _make_state()
-        state.client.list_products.return_value = [
-            make_product(id=3, eng_id=200, name='X', product_code='DEMO'),
-        ]
         build_state.return_value = state
         runner = CliRunner()
         with runner.isolated_filesystem():
@@ -101,42 +95,9 @@ class TestReleaseInitCli(unittest.TestCase):
             )
             self.assertEqual(result.exit_code, 0)
             content = Path('r.yaml').read_text()
-            self.assertIn('id: 3', content)
-
-    @mock.patch('ud2.cli.build_cli_state')
-    def test_init_eng_id_ambiguous_warns_and_picks_largest_id(self, build_state):
-        state = _make_state()
-        state.client.list_products.return_value = [
-            make_product(id=5, eng_id=4001, name='A'),
-            make_product(id=10, eng_id=4001, name='B'),
-        ]
-        build_state.return_value = state
-        runner = CliRunner()
-        with runner.isolated_filesystem():
-            result = runner.invoke(
-                cli_main,
-                ['release', 'init', 'r.yaml', '--product-eng-id', '4001',
-                 '--version', '1.0'],
-            )
-            self.assertEqual(result.exit_code, 0)
-            self.assertIn('Warning:', result.stderr)
-            self.assertIn('10', Path('r.yaml').read_text())
-
-    @mock.patch('ud2.cli.build_cli_state')
-    def test_init_no_match_eng_id(self, build_state):
-        state = _make_state()
-        state.client.list_products.return_value = [
-            make_product(id=1, eng_id=99, name='Other'),
-        ]
-        build_state.return_value = state
-        runner = CliRunner()
-        result = runner.invoke(
-            cli_main,
-            ['release', 'init', 'r.yaml', '--product-eng-id', '4001',
-             '--version', '1.0'],
-        )
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertIn('engineering ID', result.output)
+            self.assertIn('productCode: demo', content)
+            self.assertNotIn('id:', content)
+            state.client.list_products.assert_not_called()
 
     @mock.patch('ud2.cli.build_cli_state')
     def test_init_rejects_multiple_product_specifiers(self, build_state):

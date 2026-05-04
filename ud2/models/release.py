@@ -14,6 +14,7 @@ class ProductRef(StrictModel):
     id: Optional[int] = None
     eng_id: Optional[int] = Field(None, alias='engId')
     name: Optional[str] = None
+    product_code: Optional[str] = Field(None, alias='productCode')
 
 
 class VersionRef(StrictModel):

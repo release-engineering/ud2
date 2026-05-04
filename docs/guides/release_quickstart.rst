@@ -46,24 +46,26 @@ Authoring workflow (recommended)
 
 1. Initialize a new manifest. Specify the product using **exactly one** of
    ``--product-id``, ``--product-eng-id``, ``--product-name``, or
-   ``--product-code``. The last three resolve a product id by listing products
-   from the API (case-insensitive match on name or product code; exact match on
-   engineering id). If several products match, the CLI uses the largest
-   product id and prints a warning. Use ``--force`` to overwrite an existing
-   file.
+   ``--product-code``. With ``--product-id``, the manifest stores that numeric
+   id. With any of the other three, the manifest stores that engineering id,
+   name, or product code (no API call during ``init``). ``ud2 release check``
+   and ``ud2 release push`` then resolve the product id against the configured
+   API (case-insensitive match on name or product code; exact match on
+   engineering id). If several products match, the CLI uses the largest product
+   id and prints a warning. Use ``--force`` to overwrite an existing file.
 
    .. code-block:: bash
 
       ud2 release init release.yaml --product-eng-id 4001 \\
           --version 1.0 --architecture x86_64 --platform linux
 
-   Or by name or code (requires API access):
+   Or by name or code (stored in the manifest; resolved at check/push time):
 
    .. code-block:: bash
 
       ud2 release init release.yaml --product-name "Project Atlas" --version 1.0
 
-   Or with a known product id (no API lookup):
+   Or with a known product id (stored as-is in the manifest):
 
    .. code-block:: bash
 

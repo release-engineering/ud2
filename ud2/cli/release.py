@@ -5,7 +5,7 @@ Release check and push command registrations.
 import posixpath
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import click
 from click import ClickException
@@ -15,10 +15,12 @@ from click import argument, echo, group, option
 from ..checksums import file_metadata
 from ..client import UDClient
 from ..loader import load_yaml, pretty_yaml
-from ..models import Product, ProductRef, Release, RepositoryEntry, VersionRef
+from ..models import ProductRef, Release, RepositoryEntry, VersionRef
 from ..models.enums import ContentType
 from ..release import (ReleaseError, apply_release, check_release,
-                       load_release_manifest, write_release_manifest)
+                       _choose_product_from_soft_key_matches,
+                       _soft_key_match_products, load_release_manifest,
+                       write_release_manifest)
 from .util import CLIState, catchall, merge_payload, pass_state
 
 
@@ -112,53 +114,25 @@ def _init_resolve_product_id(
     :returns: Chosen product id (largest id when multiple matches, with warning).
     """
 
-    active: List[Tuple[str, Any]] = []
-    if product_eng_id is not None:
-        active.append(('engineering ID', product_eng_id))
-    if product_name is not None:
-        active.append(('name', product_name))
-    if product_code is not None:
-        active.append(('product code', product_code))
-
-    if len(active) != 1:
-        raise ValueError('expected exactly one lookup key for API product resolution')
-
-    kind_label, search_value = active[0]
     products = client.list_products()
-    matches: List[Product]
-
-    if product_eng_id is not None:
-        matches = [p for p in products if p.eng_id == product_eng_id]
-        search_display = str(product_eng_id)
-    elif product_name is not None:
-        key = product_name.casefold()
-        matches = [p for p in products if p.name.casefold() == key]
-        search_display = product_name
-    else:
-        assert product_code is not None
-        key = product_code.casefold()
-        matches = [
-            p for p in products
-            if p.product_code is not None
-            and p.product_code.casefold() == key
-        ]
-        search_display = product_code
-
-    if not matches:
+    matches, kind_label, search_display = _soft_key_match_products(
+        products,
+        product_eng_id=product_eng_id,
+        product_name=product_name,
+        product_code=product_code,
+    )
+    chosen = _choose_product_from_soft_key_matches(
+        matches,
+        kind_label,
+        search_display,
+        warn=lambda m: echo(m, err=True),
+    )
+    if chosen is None:
         raise ClickException(
             "No product found for {0} {1!r}.".format(kind_label, search_display),
         )
 
-    chosen_id = max(p.id for p in matches)
-    if len(matches) > 1:
-        echo(
-            "Warning: Multiple products match {0} {1!r}; using product id {2}.".format(
-                kind_label, search_display, chosen_id,
-            ),
-            err=True,
-        )
-
-    return chosen_id
+    return chosen.id
 
 
 def _report_to_serializable(report: Dict[str, Any]) -> Dict[str, Any]:
@@ -304,16 +278,13 @@ def init(
             resolved_dirname = release_path.name
 
     if has_id:
-        resolved_id = product_id
+        product_ref = ProductRef(id=product_id)
+    elif has_eng:
+        product_ref = ProductRef(eng_id=product_eng_id)
+    elif has_name:
+        product_ref = ProductRef(name=product_name)
     else:
-        resolved_id = _init_resolve_product_id(
-            state.client,
-            product_eng_id=product_eng_id if has_eng else None,
-            product_name=product_name if has_name else None,
-            product_code=product_code if has_code else None,
-        )
-
-    product_ref = ProductRef(id=resolved_id)
+        product_ref = ProductRef(product_code=product_code)
 
     version_ref = VersionRef(
         version=version_str,

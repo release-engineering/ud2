@@ -2,6 +2,7 @@
 Unit tests for release resolve, ensure, check, and apply logic.
 """
 
+import io
 import pathlib
 import unittest
 from unittest import mock
@@ -116,26 +117,122 @@ class TestResolveProduct(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result.id, 10)
 
-    def test_resolve_by_id_404_falls_through_to_search(self):
+    def test_resolve_by_id_404_returns_none_without_search(self):
         import requests
         with mock.patch.object(UDClient, 'get_product') as get_product:
             err = requests.HTTPError("404")
             err.response = type('R', (), {'status_code': 404})()
             get_product.side_effect = err
             with mock.patch.object(UDClient, 'iter_products') as iter_products:
-                iter_products.return_value = iter([])
-                client = UDClient(config=self.config)
-                result = resolve_product(
-                    client,
-                    ProductRef(id=10, eng_id=4001, name='Missing'),
-                )
+                with mock.patch.object(UDClient, 'list_products') as list_products:
+                    client = UDClient(config=self.config)
+                    result = resolve_product(
+                        client,
+                        ProductRef(id=10, eng_id=4001, name='Missing'),
+                    )
         self.assertIsNone(result)
+        iter_products.assert_not_called()
+        list_products.assert_not_called()
 
-    def test_resolve_requires_id_or_eng_id_name(self):
+    def test_resolve_id_only_skips_list_and_iter(self):
+        product = make_product(id=10, eng_id=4001, name='Atlas')
+        with mock.patch.object(UDClient, 'get_product', return_value=product):
+            with mock.patch.object(UDClient, 'iter_products') as iter_products:
+                with mock.patch.object(UDClient, 'list_products') as list_products:
+                    client = UDClient(config=self.config)
+                    result = resolve_product(
+                        client,
+                        ProductRef(
+                            id=10,
+                            eng_id=999,
+                            name='Other',
+                            product_code='Z',
+                        ),
+                    )
+        self.assertEqual(result.id, 10)
+        iter_products.assert_not_called()
+        list_products.assert_not_called()
+
+    def test_resolve_requires_valid_product_ref(self):
         client = UDClient(config=self.config)
         with self.assertRaises(ReleaseError) as ctx:
             resolve_product(client, ProductRef())
-        self.assertIn('id or both eng_id and name', str(ctx.exception))
+        self.assertIn('engId', str(ctx.exception))
+
+    def test_resolve_rejects_conflicting_soft_keys(self):
+        client = UDClient(config=self.config)
+        with self.assertRaises(ReleaseError):
+            resolve_product(
+                client,
+                ProductRef(eng_id=1, product_code='x'),
+            )
+
+    def test_resolve_by_product_code(self):
+        p = make_product(id=3, eng_id=200, name='X', product_code='DEMO')
+        with mock.patch.object(UDClient, 'list_products', return_value=[p]):
+            with mock.patch.object(UDClient, 'iter_products') as iter_products:
+                client = UDClient(config=self.config)
+                result = resolve_product(
+                    client,
+                    ProductRef(product_code='demo'),
+                )
+        iter_products.assert_not_called()
+        self.assertIsNotNone(result)
+        self.assertEqual(result.id, 3)
+
+    def test_resolve_by_eng_id_alone(self):
+        p = make_product(id=42, eng_id=4001, name='Atlas')
+        with mock.patch.object(UDClient, 'list_products', return_value=[p]):
+            with mock.patch.object(UDClient, 'iter_products') as iter_products:
+                client = UDClient(config=self.config)
+                result = resolve_product(
+                    client,
+                    ProductRef(eng_id=4001),
+                )
+        iter_products.assert_not_called()
+        self.assertEqual(result.id, 42)
+
+    def test_resolve_by_name_alone(self):
+        p = make_product(id=7, eng_id=100, name='Atlas')
+        with mock.patch.object(UDClient, 'list_products', return_value=[p]):
+            with mock.patch.object(UDClient, 'iter_products') as iter_products:
+                client = UDClient(config=self.config)
+                result = resolve_product(
+                    client,
+                    ProductRef(name='atlas'),
+                )
+        iter_products.assert_not_called()
+        self.assertEqual(result.id, 7)
+
+    def test_resolve_soft_key_ambiguous_warns_and_picks_largest_id(self):
+        err = io.StringIO()
+        products = [
+            make_product(id=5, eng_id=4001, name='A'),
+            make_product(id=10, eng_id=4001, name='B'),
+        ]
+        with mock.patch.object(UDClient, 'list_products', return_value=products):
+            with mock.patch.object(UDClient, 'iter_products') as iter_products:
+                with mock.patch('ud2.release.sys.stderr', new=err):
+                    client = UDClient(config=self.config)
+                    result = resolve_product(
+                        client,
+                        ProductRef(eng_id=4001),
+                    )
+        iter_products.assert_not_called()
+        self.assertEqual(result.id, 10)
+        self.assertIn('Warning:', err.getvalue())
+
+    def test_resolve_legacy_eng_id_and_name_uses_iter_products(self):
+        p = make_product(id=8, eng_id=1, name='Atlas')
+        with mock.patch.object(UDClient, 'iter_products', return_value=iter([p])):
+            with mock.patch.object(UDClient, 'list_products') as list_products:
+                client = UDClient(config=self.config)
+                result = resolve_product(
+                    client,
+                    ProductRef(eng_id=1, name='Atlas'),
+                )
+        list_products.assert_not_called()
+        self.assertEqual(result.id, 8)
 
 
 class TestResolveVersion(unittest.TestCase):
