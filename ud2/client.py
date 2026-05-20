@@ -680,6 +680,8 @@ class UDClient:
             if unwrap_data and isinstance(data, dict) and 'data' in data:
                 data = data['data']
             if model:
+                logger.debug(f'[DEBUG] model: {model}')
+                logger.debug(f'[DEBUG] data: {data}')
                 return coerce_model(data, model)
             return data
 

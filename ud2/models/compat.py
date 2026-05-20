@@ -33,12 +33,14 @@ try:
 
     class BaseModel(_BaseModel):
         model_config = ConfigDict(
+            populate_by_name=True,
             serialize_by_alias=True,
             validate_by_alias=True,
             validate_by_name=True)
 
     class StrictModel(_BaseModel):
         model_config = ConfigDict(
+            populate_by_name=True,
             serialize_by_alias=True,
             validate_by_alias=True,
             validate_by_name=True,

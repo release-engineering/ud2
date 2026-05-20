@@ -4,6 +4,7 @@ File metadata and checksum utilities.
 
 import hashlib
 from pathlib import Path
+from functools import partial
 from typing import Any, Dict
 
 
@@ -30,10 +31,7 @@ def file_metadata(path: Path) -> Dict[str, Any]:
     md5_hash = hashlib.md5()
 
     with p.open('rb') as f:
-        while True:
-            chunk = f.read(CHUNK_SIZE)
-            if not chunk:
-                break
+        for chunk in iter(partial(f.read, CHUNK_SIZE), b''):
             sha256_hash.update(chunk)
             md5_hash.update(chunk)
 
