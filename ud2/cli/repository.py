@@ -5,7 +5,7 @@ Repository resource command registrations.
 
 from io import StringIO
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import Optional, Sequence
 
 from click import Choice, ClickException
 from click import Path as ClickPath
@@ -21,7 +21,9 @@ from .util import (
     catchall,
     confirm_deletion,
     merge_payload,
+    parse_content_types,
     pass_state,
+    resplit,
     tabulate,
 )
 
@@ -261,14 +263,6 @@ def get_repository(
     render_repository(repository, state.yaml_output)
 
 
-def _split_comma(s: Optional[str]) -> List[str]:
-    """Split comma-separated string into list, stripping whitespace."""
-
-    if s is None or not s.strip():
-        return []
-    return [part.strip() for part in s.split(',') if part.strip()]
-
-
 def _normalize_repository_payload(data: dict) -> dict:
     """
     Normalize payload to use field names (snake_case) only, avoiding
@@ -300,9 +294,11 @@ def _normalize_repository_payload(data: dict) -> dict:
 @option("--visibility", type=str, default='visible', help="Visibility.")
 @option("--content-type", "content_type", type=str, multiple=True,
         default=[ContentType.DISTRIBUTION.value],
-        help="Content type (repeatable).")
-@option("--issues", type=str, help="Comma-separated issue IDs (e.g. TUSC-1234,TUSC-5678).")
-@option("--classifier", type=str, help="Comma-separated classifier values.")
+        help="Content type (repeatable; comma-separated values allowed).")
+@option("--issues", type=str, multiple=True,
+        help="Issue IDs (repeatable; comma-separated values allowed).")
+@option("--classifier", type=str, multiple=True,
+        help="Classifier values (repeatable; comma-separated values allowed).")
 @option("--installation", type=str, help="Installation instructions.")
 @option("--long-desc", "long_description", type=str,
         help="Long description.")
@@ -320,8 +316,8 @@ def create_repository(
         description: Optional[str],
         visibility: Optional[str],
         content_type: tuple,
-        issues: Optional[str],
-        classifier: Optional[str],
+        issues: tuple,
+        classifier: tuple,
         installation: Optional[str],
         long_description: Optional[str],
         long_desc_file: Optional[Path],
@@ -348,11 +344,11 @@ def create_repository(
             data,
             description=description,
             visibility=visibility,
-            contentTypes=list(content_type) if content_type else None,
-            issues=_split_comma(issues) if issues else None,
-            classifier=_split_comma(classifier) if classifier else None,
+            content_types=parse_content_types(*content_type) if content_type else None,
+            issues=resplit(*issues) if issues else None,
+            classifier=resplit(*classifier) if classifier else None,
             installation=installation,
-            longDescription=long_description,
+            long_description=long_description,
         )
     else:
         if artifact_path is None or description is None:
@@ -360,9 +356,12 @@ def create_repository(
                 "Provide --yaml-file or both --file (artifact) and --description.",
             )
         meta = file_metadata(artifact_path)
-        content_types = list(content_type) if content_type else []
-        issues_list = _split_comma(issues) if issues else []
-        classifier_list = _split_comma(classifier) if classifier else []
+        content_types = parse_content_types(
+            *content_type,
+            default=[ContentType.DISTRIBUTION.value],
+        )
+        issues_list = resplit(*issues)
+        classifier_list = resplit(*classifier)
 
         data = {
             'description': description,
@@ -404,9 +403,11 @@ def create_repository(
 @option("--desc", "description", type=str, help="Short description (title).")
 @option("--visibility", type=str, help="Visibility.")
 @option("--content-type", "content_type", type=str, multiple=True,
-        help="Content type (repeatable).")
-@option("--issues", type=str, help="Comma-separated issue IDs.")
-@option("--classifier", type=str, help="Comma-separated classifier values.")
+        help="Content type (repeatable; comma-separated values allowed).")
+@option("--issues", type=str, multiple=True,
+        help="Issue IDs (repeatable; comma-separated values allowed).")
+@option("--classifier", type=str, multiple=True,
+        help="Classifier values (repeatable; comma-separated values allowed).")
 @option("--installation", type=str, help="Installation instructions.")
 @option("--long-desc", "long_description", type=str,
         help="Long description.")
@@ -424,8 +425,8 @@ def update_repository(
         description: Optional[str],
         visibility: Optional[str],
         content_type: tuple,
-        issues: Optional[str],
-        classifier: Optional[str],
+        issues: tuple,
+        classifier: tuple,
         installation: Optional[str],
         long_description: Optional[str],
         long_desc_file: Optional[Path],
@@ -470,9 +471,9 @@ def update_repository(
             data,
             description=description,
             visibility=visibility,
-            content_types=list(content_type) if content_type else None,
-            issues=_split_comma(issues) if issues else None,
-            classifier=_split_comma(classifier) if classifier else None,
+            content_types=parse_content_types(*content_type) if content_type else None,
+            issues=resplit(*issues) if issues else None,
+            classifier=resplit(*classifier) if classifier else None,
             installation=installation,
             long_description=long_description,
         )
@@ -499,9 +500,9 @@ def update_repository(
             data,
             description=description,
             visibility=visibility,
-            content_types=list(content_type) if content_type else None,
-            issues=_split_comma(issues) if issues else None,
-            classifier=_split_comma(classifier) if classifier else None,
+            content_types=parse_content_types(*content_type) if content_type else None,
+            issues=resplit(*issues) if issues else None,
+            classifier=resplit(*classifier) if classifier else None,
             installation=installation,
             long_description=long_description,
         )

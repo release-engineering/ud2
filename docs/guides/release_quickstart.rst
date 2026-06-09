@@ -87,7 +87,17 @@ Authoring workflow (recommended)
    ``--content-type``, ``--issues``, ``--classifier``, ``--installation``,
    ``--long-desc``, and ``--long-desc-file``.
 
-3. Edit entries with ``ud2 release edit``. Identify the entry by ``--file-name``
+3. List entries with ``ud2 release list``. This prints a short summary of each
+   repository row in the manifest: index, file name, and title (the short
+   ``description``). Use ``--by-index`` with ``edit`` and ``remove`` to target
+   rows shown here. Add global ``--yaml`` for machine-readable output.
+
+   .. code-block:: bash
+
+      ud2 release list release.yaml
+      ud2 release list .
+
+4. Edit entries with ``ud2 release edit``. Identify the entry by ``--file-name``
    or ``--by-index``. Override any field (``--desc``, ``--new-file-name``,
    ``--file`` to recompute from disk, etc.). Use ``--path`` or ``--clear-path``
    to set or clear the upload path. Use ``--dry-run`` to preview changes without
@@ -98,7 +108,7 @@ Authoring workflow (recommended)
       ud2 release edit release.yaml --file-name atlas-1.0-ga.iso --desc "Atlas 1.0 GA ISO (GA)"
       ud2 release edit release.yaml --by-index 1 --dry-run
 
-4. Remove entries with ``ud2 release remove``. Identify by ``--file-name`` or
+5. Remove entries with ``ud2 release remove``. Identify by ``--file-name`` or
    ``--by-index``. Use ``--dry-run`` to preview.
 
    .. code-block:: bash
@@ -183,7 +193,7 @@ Next Steps
 
 * Use ``ud2 release --help`` and command-specific ``--help`` flags (for example
   ``ud2 release add --help``) to discover all options.
-* Add ``--yaml`` to ``check`` or ``push`` for machine-readable output in
-  automation or CI pipelines.
+* Add ``--yaml`` to ``list``, ``check``, or ``push`` for machine-readable output
+  in automation or CI pipelines.
 
 .. The end.

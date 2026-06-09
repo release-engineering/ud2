@@ -5,7 +5,7 @@ Release check and push command registrations.
 import posixpath
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import click
 from click import ClickException
@@ -21,7 +21,15 @@ from ..release import (ReleaseError, apply_release, check_release,
                        _choose_product_from_soft_key_matches,
                        _soft_key_match_products, load_release_manifest,
                        write_release_manifest)
-from .util import CLIState, catchall, merge_payload, pass_state
+from .util import (
+    CLIState,
+    catchall,
+    merge_payload,
+    parse_content_types,
+    pass_state,
+    resplit,
+    tabulate,
+)
 
 
 def resolve_release_path(path: Path) -> Path:
@@ -50,14 +58,6 @@ def resolve_release_path_for_init(path: Path) -> Path:
     if path.suffix.lower() in ('.yml', '.yaml'):
         return path
     return path / 'ud-release.yml'
-
-
-def _split_comma(s: Optional[str]) -> List[str]:
-    """Split comma-separated string into list, stripping whitespace."""
-
-    if s is None or not s.strip():
-        return []
-    return [part.strip() for part in s.split(',') if part.strip()]
 
 
 def _strip_optional_str(value: Optional[str]) -> Optional[str]:
@@ -319,9 +319,11 @@ def init(
 @option("--visibility", type=str, default='visible', help="Visibility.")
 @option("--content-type", "content_type", type=str, multiple=True,
         default=[ContentType.DISTRIBUTION.value],
-        help="Content type (repeatable).")
-@option("--issues", type=str, help="Comma-separated issue IDs.")
-@option("--classifier", type=str, help="Comma-separated classifier values.")
+        help="Content type (repeatable; comma-separated values allowed).")
+@option("--issues", type=str, multiple=True,
+        help="Issue IDs (repeatable; comma-separated values allowed).")
+@option("--classifier", type=str, multiple=True,
+        help="Classifier values (repeatable; comma-separated values allowed).")
 @option("--installation", type=str, help="Installation instructions.")
 @option("--long-desc", "long_description", type=str,
         help="Long description.")
@@ -342,9 +344,9 @@ def add(
         sha256: Optional[str],
         md5: Optional[str],
         visibility: Optional[str],
-        content_type: List[str],
-        issues: Optional[str],
-        classifier: Optional[str],
+        content_type: tuple,
+        issues: tuple,
+        classifier: tuple,
         installation: Optional[str],
         long_description: Optional[str],
         long_desc_file: Optional[Path],
@@ -370,10 +372,13 @@ def add(
             'fileSize': meta['fileSize'],
             'sha256': meta['sha256'],
             'md5': meta['md5'],
-            'issues': _split_comma(issues) if issues else [],
+            'issues': resplit(*issues),
             'visibility': visibility or 'visible',
-            'classifier': _split_comma(classifier) if classifier else [],
-            'contentTypes': list(content_type) if content_type else [],
+            'classifier': resplit(*classifier),
+            'contentTypes': parse_content_types(
+                *content_type,
+                default=[ContentType.DISTRIBUTION.value],
+            ),
             'installation': installation,
             'longDescription': long_description,
         }
@@ -395,10 +400,13 @@ def add(
             'fileSize': file_size,
             'sha256': sha256,
             'md5': md5,
-            'issues': _split_comma(issues) if issues else [],
+            'issues': resplit(*issues),
             'visibility': visibility or 'visible',
-            'classifier': _split_comma(classifier) if classifier else [],
-            'contentTypes': list(content_type) if content_type else [],
+            'classifier': resplit(*classifier),
+            'contentTypes': parse_content_types(
+                *content_type,
+                default=[ContentType.DISTRIBUTION.value],
+            ),
             'installation': installation,
             'longDescription': long_description,
         }
@@ -450,9 +458,11 @@ def _find_entry(
 @option("--md5", type=str, help="MD5 checksum.")
 @option("--visibility", type=str, help="Visibility.")
 @option("--content-type", "content_type", type=str, multiple=True,
-        help="Content type (repeatable).")
-@option("--issues", type=str, help="Comma-separated issue IDs.")
-@option("--classifier", type=str, help="Comma-separated classifier values.")
+        help="Content type (repeatable; comma-separated values allowed).")
+@option("--issues", type=str, multiple=True,
+        help="Issue IDs (repeatable; comma-separated values allowed).")
+@option("--classifier", type=str, multiple=True,
+        help="Classifier values (repeatable; comma-separated values allowed).")
 @option("--installation", type=str, help="Installation instructions.")
 @option("--long-desc", "long_description", type=str,
         help="Long description.")
@@ -477,8 +487,8 @@ def edit(
         md5: Optional[str],
         visibility: Optional[str],
         content_type: tuple,
-        issues: Optional[str],
-        classifier: Optional[str],
+        issues: tuple,
+        classifier: tuple,
         installation: Optional[str],
         long_description: Optional[str],
         long_desc_file: Optional[Path],
@@ -518,11 +528,11 @@ def edit(
         sha256=sha256,
         md5=md5,
         visibility=visibility,
-        contentTypes=list(content_type) if content_type else None,
-        issues=_split_comma(issues) if issues else None,
-        classifier=_split_comma(classifier) if classifier else None,
+        content_types=parse_content_types(*content_type) if content_type else None,
+        issues=resplit(*issues) if issues else None,
+        classifier=resplit(*classifier) if classifier else None,
         installation=installation,
-        longDescription=long_description,
+        long_description=long_description,
     )
 
     if path_val is not None:
@@ -538,6 +548,44 @@ def edit(
     release_obj.repositories[idx] = updated
     write_release_manifest(manifest_path, release_obj)
     echo(f"Updated {updated.description}")
+
+
+def render_release_list(release_obj: Release, yaml_mode: bool) -> None:
+    """
+    Render repository entries from a release manifest.
+    """
+
+    if yaml_mode:
+        rows = [
+            {
+                'index': idx,
+                'fileName': entry.file_name,
+                'description': entry.description,
+            }
+            for idx, entry in enumerate(release_obj.repositories)
+        ]
+        pretty_yaml(rows)
+        return
+
+    headers = ('Index', 'File Name', 'Title')
+    rows = [
+        (idx, entry.file_name, entry.description)
+        for idx, entry in enumerate(release_obj.repositories)
+    ]
+    tabulate(headers, rows)
+
+
+@release.command(name="list")
+@argument("releasefile", type=click.Path(
+    exists=True, path_type=Path, file_okay=True, dir_okay=True))
+@pass_state
+@catchall
+def list_release(state: CLIState, releasefile: Path) -> None:
+    """List repository entries in a release manifest."""
+
+    manifest_path = resolve_release_path(Path(releasefile))
+    release_obj = load_release_manifest(manifest_path)
+    render_release_list(release_obj, state.yaml_output)
 
 
 @release.command(name="remove")

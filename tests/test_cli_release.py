@@ -9,7 +9,8 @@ from unittest import mock
 from click.testing import CliRunner
 
 from ud2.cli import main as cli_main
-from ud2.cli.release import resolve_release_path
+from ud2.cli.release import render_release_list, resolve_release_path
+from ud2.models import ProductRef, Release, RepositoryEntry, VersionRef
 from ud2.cli.util import CLIState
 from ud2.client import UDClient
 from ud2.config import UDConfig
@@ -197,6 +198,48 @@ class TestReleaseInitCli(unittest.TestCase):
             self.assertNotIn('dirname:', content)
 
 
+class TestReleaseAddListOptions(unittest.TestCase):
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_add_resplits_issues_and_content_types(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(cli_main, ['release', 'init', 'r.yaml',
+                        '--product-id', '1', '--version', '1.0'])
+            Path('a.bin').write_bytes(b'x')
+            result = runner.invoke(
+                cli_main,
+                ['release', 'add', 'r.yaml', '--file', 'a.bin',
+                 '--desc', 'Test artifact',
+                 '--issues', 'TUSC-1,TUSC-2', '--issues', 'TUSC-3',
+                 '--content-type', 'bugfix,distribution', '--content-type', 'security'],
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            content = Path('r.yaml').read_text()
+            self.assertIn('- TUSC-1', content)
+            self.assertIn('- TUSC-2', content)
+            self.assertIn('- TUSC-3', content)
+            self.assertIn('- DISTRIBUTION', content)
+            self.assertIn('- BUGFIX', content)
+            self.assertIn('- SECURITY', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_add_rejects_invalid_content_type(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(cli_main, ['release', 'init', 'r.yaml',
+                        '--product-id', '1', '--version', '1.0'])
+            Path('a.bin').write_bytes(b'x')
+            result = runner.invoke(
+                cli_main,
+                ['release', 'add', 'r.yaml', '--file', 'a.bin',
+                 '--desc', 'Test artifact', '--content-type', 'invalid'],
+            )
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn('Invalid content type', result.output)
+
+
 class TestReleaseAddCli(unittest.TestCase):
     @mock.patch('ud2.cli.build_cli_state')
     def test_add_with_file_computes_checksums(self, build_state):
@@ -316,6 +359,53 @@ class TestReleaseAddCli(unittest.TestCase):
             self.assertIn('fileName: nested/foo.bin', content)
 
 
+class TestReleaseListCli(unittest.TestCase):
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_list_shows_index_file_name_and_title(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(cli_main, ['release', 'init', 'r.yaml',
+                        '--product-id', '1', '--version', '1.0'])
+            Path('a.bin').write_bytes(b'x')
+            Path('b.bin').write_bytes(b'yy')
+            runner.invoke(cli_main, ['release', 'add', 'r.yaml',
+                        '--file', 'a.bin', '--desc', 'First artifact'])
+            runner.invoke(cli_main, ['release', 'add', 'r.yaml',
+                        '--file', 'b.bin', '--desc', 'Second artifact'])
+            result = runner.invoke(cli_main, ['release', 'list', 'r.yaml'])
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn('0', result.output)
+            self.assertIn('a.bin', result.output)
+            self.assertIn('First artifact', result.output)
+            self.assertIn('1', result.output)
+            self.assertIn('b.bin', result.output)
+            self.assertIn('Second artifact', result.output)
+
+    def test_list_yaml_output(self):
+        sha = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'
+        entry = RepositoryEntry.model_validate({
+            'description': 'Only artifact',
+            'fileName': 'a.bin',
+            'fileSize': 1,
+            'sha256': sha,
+            'md5': '5d41402abc4b2a76b9719d911017c592',
+            'visibility': 'visible',
+        })
+        release_obj = Release(
+            product=ProductRef(id=1),
+            version=VersionRef(version='1.0'),
+            repositories=[entry],
+        )
+        with mock.patch('ud2.cli.release.pretty_yaml') as pretty_yaml:
+            render_release_list(release_obj, yaml_mode=True)
+            pretty_yaml.assert_called_once()
+            rows = pretty_yaml.call_args[0][0]
+            self.assertEqual(rows[0]['index'], 0)
+            self.assertEqual(rows[0]['fileName'], 'a.bin')
+            self.assertEqual(rows[0]['description'], 'Only artifact')
+
+
 class TestReleaseEditCli(unittest.TestCase):
     @mock.patch('ud2.cli.build_cli_state')
     def test_edit_by_file_name(self, build_state):
@@ -354,6 +444,28 @@ class TestReleaseEditCli(unittest.TestCase):
             self.assertEqual(result.exit_code, 0)
             content = Path('r.yaml').read_text()
             self.assertIn('description: Edited', content)
+
+    @mock.patch('ud2.cli.build_cli_state')
+    def test_edit_long_description_on_entry_with_existing_value(self, build_state):
+        build_state.return_value = _make_state()
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            runner.invoke(cli_main, ['release', 'init', 'r.yaml',
+                        '--product-id', '1', '--version', '1.0'])
+            Path('a.bin').write_bytes(b'x')
+            runner.invoke(
+                cli_main,
+                ['release', 'add', 'r.yaml', '--file', 'a.bin',
+                 '--desc', 'Original', '--long-desc', 'Initial long desc'],
+            )
+            result = runner.invoke(
+                cli_main,
+                ['release', 'edit', 'r.yaml', '--file-name', 'a.bin',
+                 '--long-desc', 'Updated long desc'],
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            content = Path('r.yaml').read_text()
+            self.assertIn('longDescription: Updated long desc', content)
 
     @mock.patch('ud2.cli.build_cli_state')
     def test_edit_dry_run_skips_write(self, build_state):

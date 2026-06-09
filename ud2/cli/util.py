@@ -16,6 +16,7 @@ from yaml import YAMLError
 
 from ..client import UDClient
 from ..config import UDConfig, ConfigurationError
+from ..models.enums import ContentType
 
 
 @dataclass
@@ -128,6 +129,57 @@ def catchall(function: Callable[..., Any]) -> Callable[..., Any]:
             raise
 
     return wrapper
+
+
+def resplit(*args: Optional[str]) -> List[str]:
+    """
+    Split CLI list values that may be comma-separated, repeated, or both.
+
+    Each positional argument is joined with commas, then split on commas.
+    Empty and whitespace-only tokens are omitted.
+    """
+
+    parts = [str(value) for value in args if value is not None]
+    if not parts:
+        return []
+
+    col = [item.strip() for item in ','.join(parts).split(',')]
+    return [item for item in col if item]
+
+
+def parse_content_types(
+        *values: Optional[str],
+        default: Optional[List[str]] = None) -> List[str]:
+    """
+    Parse, upper-case, and validate repository content type CLI values.
+
+    :param values: Raw ``--content-type`` option values.
+    :param default: Returned when no values are supplied after resplitting.
+
+    :returns: Validated content type strings.
+    """
+
+    raw = resplit(*values)
+    if not raw:
+        if default is not None:
+            return list(default)
+        return []
+
+    normalized: List[str] = []
+    for item in raw:
+        upper = item.upper()
+        try:
+            ContentType(upper)
+        except ValueError:
+            valid = ', '.join(ct.value for ct in ContentType)
+            raise ClickException(
+                "Invalid content type {0!r}; expected one of: {1}.".format(
+                    item, valid,
+                ),
+            )
+        normalized.append(upper)
+
+    return normalized
 
 
 def merge_payload(base: Dict[str, Any], **overrides: Any) -> Dict[str, Any]:

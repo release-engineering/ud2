@@ -261,6 +261,10 @@ without API calls. They enable compose-style interactive authoring before push.
   `--classifier`, `--installation`, `--long-desc`. Use `--no-path` to omit the
   path field when using `--file`.
 
+- **ud2 release list RELEASEFILE** — List repository entries in the manifest.
+  Prints index, file name, and title (short description) for each entry. With
+  `--yaml`, outputs a YAML list of `index`, `fileName`, and `description`.
+
 - **ud2 release edit RELEASEFILE** — Edit an existing entry. Identify it with
   `--file-name FILENAME` or `--by-index N`. Override any fields (`--desc`,
   `--file`, `--visibility`, etc.). Use `--dry-run` to preview without writing.
