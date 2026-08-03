@@ -157,8 +157,11 @@ resolve_repository(
 ) -> Tuple[Optional[Repository], Optional[MatchKind], Optional[RepoMatchError]]
 ```
 
-Match order: ID → sha256 → title (description). Returns `(repository_or_none,
-match_kind, error_or_none)`.
+Match order: ID → sha256+filename → title (description). Returns
+`(repository_or_none, match_kind, error_or_none)`.
+
+Sha256 alone is **not** identity. Identical content under a new download
+path (`file_name`) must create a new repository entry, not update the old one.
 
 1. **ID**: If `entry.id` is present, find in `existing` where `r.id == entry.id`.
    - If found, return `(r, MatchKind.ID, None)`.
@@ -166,11 +169,15 @@ match_kind, error_or_none)`.
      if that repository belongs to this version, return it.
    - On 404 or wrong version, treat as no match and continue.
 
-2. **sha256**: Find in `existing` where `r.sha256 == entry.sha256`.
+2. **sha256 + file_name**: Find in `existing` where `r.sha256 == entry.sha256`
+   **and** `r.file_name == entry.file_name`.
    - If found, return `(r, MatchKind.SHA256, None)`.
+   - Same sha256 with a different `file_name` is not a match (fall through).
 
 3. **Title**: Find in `existing` where `r.description == entry.description`.
    - If found:
+     - If `r.sha256 == entry.sha256` and `r.file_name != entry.file_name`:
+       Skip this repo (same bytes, new download name → would create).
      - If `r.sha256 == entry.sha256`: return `(r, MatchKind.TITLE, None)`.
      - If `r.sha256 != entry.sha256` and `r.file_name == entry.file_name`:
        Return `(r, None, RepoMatchError.FILENAME_MISMATCH)` unless
@@ -297,7 +304,7 @@ reports differences, and surfaces errors. Performs no API writes.
 3. Resolve version; report "would create" if not found.
 4. For each repository: resolve using the heuristic; report:
    - Would create
-   - Would update (by ID / sha256 / title)
+   - Would update (by ID / sha256+filename / title)
    - ERROR: filename mismatch (same title, different sha256, same filename)
 5. Emit a summary of planned actions and any errors.
 

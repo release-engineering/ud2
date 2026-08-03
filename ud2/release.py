@@ -250,7 +250,10 @@ def resolve_repository(
         force_filename: bool = False,
 ) -> Tuple[Optional[Repository], Optional[MatchKind], Optional[RepoMatchError]]:
     """
-    Resolve repository by ID, sha256, or title.
+    Resolve repository by ID, sha256+filename, or title.
+
+    Sha256 alone is not identity: identical content under a new download
+    path (``file_name``) must create a new repository entry.
 
     :param client: UD client.
     :param product_version_id: Product version ID.
@@ -279,14 +282,23 @@ def resolve_repository(
             else:
                 raise
 
-    # 2. Try sha256
+    # 2. Try sha256 + file_name (same bytes under a new name is not a match)
     for repo in existing:
-        if repo.sha256 == entry.sha256:
+        if (
+            repo.sha256 == entry.sha256
+            and repo.file_name == entry.file_name
+        ):
             return (repo, MatchKind.SHA256, None)
 
     # 3. Try title (description)
     for repo in existing:
         if repo.description == entry.description:
+            # Same content, different download name: create a new entry.
+            if (
+                repo.sha256 == entry.sha256
+                and repo.file_name != entry.file_name
+            ):
+                continue
             if repo.sha256 == entry.sha256:
                 return (repo, MatchKind.TITLE, None)
             if repo.file_name == entry.file_name and not force_filename:

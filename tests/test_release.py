@@ -291,6 +291,34 @@ class TestResolveRepository(unittest.TestCase):
         self.assertEqual(kind.value, 'sha256')
         self.assertIsNone(err)
 
+    def test_same_sha256_different_filename_no_match(self):
+        entry = make_repository_entry(
+            description='Installer v2',
+            fileName='new/path/installer-v2.iso',
+            sha256=DEFAULT_SHA256,
+        )
+        client = UDClient(config=self.config)
+        repo, kind, err = resolve_repository(
+            client, 1, entry, self.existing, self.version_ref,
+        )
+        self.assertIsNone(repo)
+        self.assertIsNone(kind)
+        self.assertIsNone(err)
+
+    def test_same_sha256_different_filename_same_title_no_match(self):
+        entry = make_repository_entry(
+            description='Installer',
+            fileName='new/path/installer-v2.iso',
+            sha256=DEFAULT_SHA256,
+        )
+        client = UDClient(config=self.config)
+        repo, kind, err = resolve_repository(
+            client, 1, entry, self.existing, self.version_ref,
+        )
+        self.assertIsNone(repo)
+        self.assertIsNone(kind)
+        self.assertIsNone(err)
+
     def test_match_by_title_different_sha256_same_filename_errors(self):
         existing = [
             make_repository(
@@ -348,6 +376,40 @@ class TestEnsureRepository(unittest.TestCase):
                 force_filename=False,
             )
         self.assertEqual(ctx.exception.kind, RepoMatchError.FILENAME_MISMATCH)
+
+    def test_same_sha256_different_filename_creates(self):
+        existing = [
+            make_repository(
+                id=1,
+                description='Installer',
+                file_name='installer.iso',
+                sha256=DEFAULT_SHA256,
+            ),
+        ]
+        entry = make_repository_entry(
+            description='Installer v2',
+            fileName='new/path/installer-v2.iso',
+            sha256=DEFAULT_SHA256,
+        )
+        created = make_repository(
+            id=2,
+            description='Installer v2',
+            file_name='new/path/installer-v2.iso',
+            sha256=DEFAULT_SHA256,
+        )
+        client = UDClient(config=self.config)
+        version_ref = VersionRef(version='1.0')
+        with mock.patch.object(
+                UDClient, 'create_repository', return_value=created,
+        ) as create_repo:
+            with mock.patch.object(UDClient, 'update_repository') as update_repo:
+                repo, was_created = ensure_repository(
+                    client, 1, entry, existing, version_ref,
+                )
+        self.assertTrue(was_created)
+        self.assertEqual(repo.id, 2)
+        create_repo.assert_called_once()
+        update_repo.assert_not_called()
 
 
 class TestApplyRelease(unittest.TestCase):
